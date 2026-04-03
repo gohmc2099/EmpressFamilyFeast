@@ -27,6 +27,7 @@ from __future__ import annotations
 import datetime
 import json
 import os
+import time
 from typing import Any
 
 import gspread
@@ -69,10 +70,13 @@ class GoogleSheetsDatabase:
 
     DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
+    CACHE_TTL = 10  # seconds — how long to cache sheet reads
+
     def __init__(self, sheet_id: str = GOOGLE_SHEET_ID) -> None:
         self.sheet_id = sheet_id
         self.client = self._authenticate()
         self.spreadsheet = self.client.open_by_key(sheet_id)
+        self._cache: dict[str, tuple[float, list[dict]]] = {}
         self._ensure_worksheets()
 
     def _authenticate(self) -> gspread.Client:
@@ -109,8 +113,27 @@ class GoogleSheetsDatabase:
         return self.spreadsheet.worksheet(name)
 
     def _get_all_records(self, sheet_name: str) -> list[dict]:
-        ws = self._ws(sheet_name)
-        return ws.get_all_records()
+        """Get all records with caching to reduce API calls."""
+        now = time.time()
+        if sheet_name in self._cache:
+            cached_time, cached_data = self._cache[sheet_name]
+            if now - cached_time < self.CACHE_TTL:
+                return [dict(r) for r in cached_data]  # return copies
+        try:
+            ws = self._ws(sheet_name)
+            records = ws.get_all_records()
+            self._cache[sheet_name] = (now, records)
+            return [dict(r) for r in records]
+        except gspread.exceptions.APIError as e:
+            # Return cached data if available, even if stale
+            if sheet_name in self._cache:
+                _, cached_data = self._cache[sheet_name]
+                return [dict(r) for r in cached_data]
+            raise
+
+    def _invalidate_cache(self, sheet_name: str) -> None:
+        """Clear cache for a sheet after a write operation."""
+        self._cache.pop(sheet_name, None)
 
     def _find_row(self, sheet_name: str, col: int, value: str) -> int | None:
         """Find row number (1-indexed) where column col matches value."""
@@ -126,6 +149,7 @@ class GoogleSheetsDatabase:
     def _append_row(self, sheet_name: str, values: list) -> None:
         ws = self._ws(sheet_name)
         ws.append_row(values, value_input_option="USER_ENTERED")
+        self._invalidate_cache(sheet_name)
 
     def _now(self) -> str:
         return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -176,28 +200,34 @@ class GoogleSheetsDatabase:
         if row:
             ws = self._ws("Drivers")
             ws.update(f"B{row}:G{row}", [[status, vehicle, 1, phone, route, whatsapp_group]])
+            self._invalidate_cache("Drivers")
 
     def update_driver_last_seen(self, name: str, timestamp: str) -> None:
         row = self._find_row("Drivers", 1, name)
         if row:
             ws = self._ws("Drivers")
             ws.update(f"H{row}", [[timestamp]])
+            self._invalidate_cache("Drivers")
 
     def update_driver_status(self, name: str, status: str) -> None:
         row = self._find_row("Drivers", 1, name)
         if row:
             ws = self._ws("Drivers")
             ws.update(f"B{row}", [[status]])
+            self._invalidate_cache("Drivers")
 
     def delete_driver(self, name: str) -> None:
         # Delete from Drivers sheet
         row = self._find_row("Drivers", 1, name)
         if row:
             self._ws("Drivers").delete_rows(row)
+            self._invalidate_cache("Drivers")
         # Delete schedule entries
         self._delete_rows_by_col("Schedule", 1, name)
+        self._invalidate_cache("Schedule")
         # Delete stops entries
         self._delete_rows_by_col("Stops", 2, name)
+        self._invalidate_cache("Stops")
 
     def _delete_rows_by_col(self, sheet_name: str, col: int, value: str) -> None:
         ws = self._ws(sheet_name)
@@ -228,6 +258,7 @@ class GoogleSheetsDatabase:
         for day in self.DAYS_OF_WEEK:
             active = 1 if day in active_days else 0
             self._append_row("Schedule", [driver, day, active])
+        self._invalidate_cache("Schedule")
 
     def get_weekly_schedule(self) -> list[dict]:
         drivers = self.get_all_drivers()
@@ -263,6 +294,7 @@ class GoogleSheetsDatabase:
         row = self._find_row("Stops", 1, str(stop_id))
         if row:
             self._ws("Stops").delete_rows(row)
+            self._invalidate_cache("Stops")
 
     # ------------------------------------------------------------------
     # Deliveries
@@ -289,6 +321,7 @@ class GoogleSheetsDatabase:
             ws = self._ws("Deliveries")
             ws.update(f"E{row}", [[status]])
             ws.update(f"I{row}", [[timestamp]])
+            self._invalidate_cache("Deliveries")
 
     def update_delivery_photo(
         self, delivery_id: str, verified: bool,
@@ -298,6 +331,7 @@ class GoogleSheetsDatabase:
         if row:
             ws = self._ws("Deliveries")
             ws.update(f"F{row}:H{row}", [[int(verified), photo_path or "", vision_analysis or ""]])
+            self._invalidate_cache("Deliveries")
 
     def get_delivery_summary(self) -> dict:
         deliveries = self.get_all_deliveries()
@@ -334,6 +368,7 @@ class GoogleSheetsDatabase:
         if row:
             ws = self._ws("Incidents")
             ws.update(f"G{row}:H{row}", [[1, self._now()]])
+            self._invalidate_cache("Incidents")
 
     # ------------------------------------------------------------------
     # Ops messages
