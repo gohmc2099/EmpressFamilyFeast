@@ -244,8 +244,9 @@ def logs():
 # Run
 # -------------------------------------------------------------------------
 
+_init_db()
+
 if __name__ == "__main__":
-    _init_db()
     print("\n  Empress Family Feast Dashboard")
     print("  Open http://127.0.0.1:5000 in your browser\n")
     app.run(debug=True, port=5000)

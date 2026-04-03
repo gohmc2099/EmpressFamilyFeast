@@ -12,8 +12,9 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-DEFAULT_DB_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(__file__)), "data", "empress.db"
+DEFAULT_DB_PATH = os.environ.get(
+    "DATABASE_PATH",
+    os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "empress.db"),
 )
 
 
