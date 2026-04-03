@@ -10,7 +10,7 @@ import datetime
 import json
 from typing import Any
 
-from db.database import get_db
+from db import get_db
 from tools.registry import Tool, ToolRegistry
 from tools.vision import verify_delivery_photo_tool, analyse_photo_standalone_tool
 

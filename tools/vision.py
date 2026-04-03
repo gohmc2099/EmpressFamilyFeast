@@ -153,7 +153,7 @@ def verify_delivery_photo_tool(**kwargs: Any) -> str:
     delivery_id = kwargs["delivery_id"]
 
     # We need the database to look up the expected address
-    from db.database import get_db
+    from db import get_db
 
     db = get_db()
     delivery = db.get_delivery(delivery_id)

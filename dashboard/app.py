@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash
 
-from db.database import get_db
+from db import get_db
 from db.seed import seed_database
 
 app = Flask(__name__)

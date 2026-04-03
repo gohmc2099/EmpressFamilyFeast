@@ -67,7 +67,9 @@ registry.register(Tool(
 │   ├── logistics.py     # Logistics tools for ERIC (database-backed)
 │   └── vision.py        # Claude Vision photo analysis
 ├── db/
-│   ├── database.py      # SQLite database layer
+│   ├── __init__.py      # Auto-selects Google Sheets or SQLite
+│   ├── database.py      # SQLite database layer (fallback)
+│   ├── google_sheets.py # Google Sheets database adapter
 │   └── seed.py          # Seed data for drivers & deliveries
 ├── config/
 │   └── settings.py      # Configuration
@@ -118,17 +120,33 @@ When a driver submits a proof-of-delivery photo, ERIC uses the `verify_delivery_
 6. The result is persisted to the `photo_verifications` table in SQLite
 7. The delivery status is updated automatically based on the result
 
-### Persistent Database
+### Data Storage — Google Sheets or SQLite
 
-All data is stored in SQLite (`data/empress.db`):
+Data can be stored in **Google Sheets** (recommended for team access) or **SQLite** (local fallback).
 
-| Table | Contents |
-|-------|----------|
-| `drivers` | Driver profiles, availability, vehicle status, last check-in time |
-| `deliveries` | All deliveries with status, photo verification results |
-| `incidents` | Logged incidents with severity and timestamps |
-| `ops_messages` | All alerts sent to the operations team |
-| `photo_verifications` | Full Claude Vision analysis results for every photo checked |
+**Google Sheets** — set `GOOGLE_SHEET_ID` env var and the app auto-creates these tabs:
 
-Data survives between sessions. Run `python -m db.seed --reset` to reset to defaults.
+| Sheet Tab | Contents |
+|-----------|----------|
+| `Drivers` | Driver profiles, availability, vehicle status, WhatsApp group |
+| `Schedule` | Weekly active days per driver |
+| `Stops` | Delivery stops per driver |
+| `Deliveries` | All deliveries with status, photo verification results |
+| `Incidents` | Logged incidents with severity and timestamps |
+| `OpsMessages` | All alerts sent to the operations team |
+| `PhotoVerifications` | Claude Vision analysis results |
+
+Your team can view and edit data directly in the Google Sheet.
+
+**SQLite fallback** — if Google Sheets is not configured, data is stored locally in `data/empress.db`. Run `python -m db.seed --reset` to reset to defaults.
+
+#### Google Sheets setup
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a project → enable **Google Sheets API** and **Google Drive API**
+3. Create a **Service Account** → download the JSON key file
+4. Save it as `credentials.json` in the project root (or set `GOOGLE_CREDENTIALS_JSON` env var with the JSON contents)
+5. Create a Google Sheet → share it with the service account email (the `client_email` in the JSON)
+6. Copy the spreadsheet ID from the URL: `https://docs.google.com/spreadsheets/d/SHEET_ID_HERE/edit`
+7. Set env var: `GOOGLE_SHEET_ID=your-sheet-id-here`
 

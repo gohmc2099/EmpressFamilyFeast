@@ -4,7 +4,7 @@ Usage examples for the chatbot, task automation, and multi-agent orchestrator.
 """
 
 from agents import ChatbotAgent, ERICAgent, MultiAgentOrchestrator, TaskAutomationAgent
-from db.database import get_db
+from db import get_db
 from db.seed import seed_database
 from tools.builtin import register_builtin_tools
 from tools.logistics import register_logistics_tools
