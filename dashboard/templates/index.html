@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Operations Dashboard</h2>
+    <p>{{ today }} — Real-time overview of delivery operations</p>
+</div>
+
+<div class="cards">
+    <div class="card">
+        <div class="card-label">Total Deliveries</div>
+        <div class="card-value blue">{{ summary.total }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Completed</div>
+        <div class="card-value green">{{ summary.completed }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Pending</div>
+        <div class="card-value yellow">{{ summary.pending }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Failed</div>
+        <div class="card-value red">{{ summary.failed }}</div>
+    </div>
+</div>
+
+<div class="cards">
+    <div class="card">
+        <div class="card-label">Total Drivers</div>
+        <div class="card-value">{{ drivers|length }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Active Today ({{ today }})</div>
+        <div class="card-value green">{{ active_today|length }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Open Incidents</div>
+        <div class="card-value {% if open_incidents %}red{% else %}green{% endif %}">
+            {{ open_incidents|length }}
+        </div>
+    </div>
+</div>
+
+{% if open_incidents %}
+<div class="table-wrap">
+    <div class="table-header">
+        <h3>Open Incidents</h3>
+        <a href="{{ url_for('incidents_list') }}" class="btn btn-sm">View All</a>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Severity</th>
+                <th>Type</th>
+                <th>Driver</th>
+                <th>Description</th>
+                <th>Logged At</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inc in open_incidents %}
+            <tr>
+                <td>{{ inc.id }}</td>
+                <td><span class="severity-{{ inc.severity|lower }}">{{ inc.severity }}</span></td>
+                <td>{{ inc.type }}</td>
+                <td>{{ inc.driver }}</td>
+                <td>{{ inc.description }}</td>
+                <td>{{ inc.logged_at }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if recent_ops %}
+<div class="table-wrap">
+    <div class="table-header">
+        <h3>Recent ERIC Alerts</h3>
+        <a href="{{ url_for('logs') }}" class="btn btn-sm">View All Logs</a>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Level</th>
+                <th>Subject</th>
+                <th>Sent At</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for msg in recent_ops %}
+            <tr>
+                <td>{{ msg.id }}</td>
+                <td><span class="severity-{{ msg.level|lower }}">{{ msg.level }}</span></td>
+                <td>{{ msg.subject }}</td>
+                <td>{{ msg.sent_at }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div class="table-wrap">
+    <div class="table-header">
+        <h3>Drivers Active Today</h3>
+        <a href="{{ url_for('drivers_list') }}" class="btn btn-sm">Manage Drivers</a>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Vehicle</th>
+                <th>Route</th>
+                <th>Last Seen</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in drivers %}
+            {% if d.name in active_today %}
+            <tr>
+                <td><strong>{{ d.name }}</strong></td>
+                <td>
+                    {% if d.status == 'available' %}
+                    <span class="badge badge-green">Available</span>
+                    {% elif d.status == 'on_delivery' %}
+                    <span class="badge badge-blue">On Delivery</span>
+                    {% else %}
+                    <span class="badge badge-yellow">{{ d.status }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ d.vehicle }}</td>
+                <td>{{ d.route }}</td>
+                <td>{{ d.last_seen or 'Not seen' }}</td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+            {% if not active_today %}
+            <tr><td colspan="5" style="color: var(--text-muted); text-align: center; padding: 24px;">No drivers scheduled for today. <a href="{{ url_for('schedule') }}">Set up the schedule</a>.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

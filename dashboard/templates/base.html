@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Dashboard{% endblock %} — Empress Family Feast</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar">
+        <div class="sidebar-brand">
+            <h1>Empress Family Feast</h1>
+            <p>ERIC Operations Dashboard</p>
+        </div>
+        <nav>
+            <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">
+                # Dashboard
+            </a>
+            <a href="{{ url_for('drivers_list') }}" class="{% if request.endpoint in ('drivers_list', 'driver_add', 'driver_edit') %}active{% endif %}">
+                @ Drivers
+            </a>
+            <a href="{{ url_for('schedule') }}" class="{% if request.endpoint == 'schedule' %}active{% endif %}">
+                ~ Weekly Schedule
+            </a>
+            <a href="{{ url_for('deliveries_list') }}" class="{% if request.endpoint == 'deliveries_list' %}active{% endif %}">
+                > Deliveries
+            </a>
+            <a href="{{ url_for('incidents_list') }}" class="{% if request.endpoint == 'incidents_list' %}active{% endif %}">
+                ! Incidents
+            </a>
+            <a href="{{ url_for('logs') }}" class="{% if request.endpoint == 'logs' %}active{% endif %}">
+                $ ERIC Logs
+            </a>
+        </nav>
+    </aside>
+
+    <main class="main">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+</div>
+</body>
+</html>

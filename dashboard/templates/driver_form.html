@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Driver{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>{{ action }} Driver</h2>
+    <p>{% if driver %}Edit {{ driver.name }}'s details{% else %}Add a new driver to the team{% endif %}</p>
+</div>
+
+<div class="card" style="max-width: 600px;">
+    <form method="POST">
+        {% if not driver %}
+        <div class="form-group">
+            <label for="name">Driver Name *</label>
+            <input type="text" id="name" name="name" required placeholder="e.g. Marcus">
+        </div>
+        {% endif %}
+
+        <div class="form-group">
+            <label for="phone">Phone Number</label>
+            <input type="text" id="phone" name="phone"
+                   value="{{ driver.phone if driver else '' }}"
+                   placeholder="e.g. +44 7700 100001">
+        </div>
+
+        <div class="form-group">
+            <label for="whatsapp_group">WhatsApp Group</label>
+            <input type="text" id="whatsapp_group" name="whatsapp_group"
+                   value="{{ driver.whatsapp_group if driver else '' }}"
+                   placeholder="e.g. North London Drivers">
+        </div>
+
+        <div class="form-group">
+            <label for="vehicle">Vehicle</label>
+            <input type="text" id="vehicle" name="vehicle"
+                   value="{{ driver.vehicle if driver else '' }}"
+                   placeholder="e.g. Van #1 — Ford Transit">
+        </div>
+
+        <div class="form-group">
+            <label for="route">Route / Area</label>
+            <input type="text" id="route" name="route"
+                   value="{{ driver.route if driver else '' }}"
+                   placeholder="e.g. North London">
+        </div>
+
+        {% if driver %}
+        <div class="form-group">
+            <label for="status">Status</label>
+            <select id="status" name="status">
+                <option value="available" {% if driver.status == 'available' %}selected{% endif %}>Available</option>
+                <option value="on_delivery" {% if driver.status == 'on_delivery' %}selected{% endif %}>On Delivery</option>
+                <option value="unavailable" {% if driver.status == 'unavailable' %}selected{% endif %}>Unavailable</option>
+                <option value="off_duty" {% if driver.status == 'off_duty' %}selected{% endif %}>Off Duty</option>
+            </select>
+        </div>
+        {% endif %}
+
+        <div class="form-group">
+            <label>Active Days This Week</label>
+            <div class="checkbox-grid">
+                {% for day in days %}
+                <label>
+                    <input type="checkbox" name="active_days" value="{{ day }}"
+                           {% if driver and driver.schedule and driver.schedule[day] %}checked{% endif %}>
+                    {{ day[:3] }}
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <button type="submit" class="btn btn-primary">{{ action }} Driver</button>
+            <a href="{{ url_for('drivers_list') }}" class="btn">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

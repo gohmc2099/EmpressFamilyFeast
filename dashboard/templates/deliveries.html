@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Deliveries{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Deliveries</h2>
+    <p>Track all delivery statuses and photo verifications</p>
+</div>
+
+<div class="filters">
+    <form method="GET" style="display: flex; gap: 12px; align-items: center;">
+        <select name="status" onchange="this.form.submit()">
+            <option value="">All Statuses</option>
+            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+            <option value="delivered" {% if status_filter == 'delivered' %}selected{% endif %}>Delivered</option>
+            <option value="failed" {% if status_filter == 'failed' %}selected{% endif %}>Failed</option>
+            <option value="photo_mismatch" {% if status_filter == 'photo_mismatch' %}selected{% endif %}>Photo Mismatch</option>
+            <option value="returned" {% if status_filter == 'returned' %}selected{% endif %}>Returned</option>
+            <option value="rescheduled" {% if status_filter == 'rescheduled' %}selected{% endif %}>Rescheduled</option>
+        </select>
+        <select name="driver" onchange="this.form.submit()">
+            <option value="">All Drivers</option>
+            {% for d in drivers %}
+            <option value="{{ d.name }}" {% if driver_filter == d.name %}selected{% endif %}>{{ d.name }}</option>
+            {% endfor %}
+        </select>
+        {% if status_filter or driver_filter %}
+        <a href="{{ url_for('deliveries_list') }}" class="btn btn-sm">Clear Filters</a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="table-wrap">
+    <div class="table-header">
+        <h3>{{ deliveries|length }} Deliveries</h3>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Driver</th>
+                <th>Customer</th>
+                <th>Address</th>
+                <th>Status</th>
+                <th>Photo Verified</th>
+                <th>Vision Analysis</th>
+                <th>Time</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in deliveries %}
+            <tr>
+                <td><strong>{{ d.id }}</strong></td>
+                <td>{{ d.driver }}</td>
+                <td>{{ d.customer }}</td>
+                <td>{{ d.address }}</td>
+                <td>
+                    {% if d.status == 'delivered' %}
+                    <span class="badge badge-green">Delivered</span>
+                    {% elif d.status == 'pending' %}
+                    <span class="badge badge-yellow">Pending</span>
+                    {% elif d.status == 'photo_mismatch' %}
+                    <span class="badge badge-red">Photo Mismatch</span>
+                    {% elif d.status == 'failed' %}
+                    <span class="badge badge-red">Failed</span>
+                    {% else %}
+                    <span class="badge badge-blue">{{ d.status }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if d.photo_verified %}
+                    <span class="badge badge-green">Verified</span>
+                    {% else %}
+                    <span style="color: var(--text-muted);">—</span>
+                    {% endif %}
+                </td>
+                <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    {{ d.vision_analysis or '—' }}
+                </td>
+                <td>{{ d.timestamp or '—' }}</td>
+            </tr>
+            {% endfor %}
+            {% if not deliveries %}
+            <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">No deliveries found.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

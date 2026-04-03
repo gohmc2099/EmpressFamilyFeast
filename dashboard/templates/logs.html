@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}ERIC Logs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>ERIC Logs</h2>
+    <p>All operational alerts and messages sent by ERIC to the ops team</p>
+</div>
+
+{% if not ops_messages %}
+<div class="card" style="text-align: center; padding: 48px;">
+    <p style="color: var(--text-muted);">No logs yet. ERIC will log alerts here when delivery operations are running.</p>
+</div>
+{% endif %}
+
+{% for msg in ops_messages %}
+<div class="log-entry">
+    <div class="log-entry-header">
+        <div>
+            <strong>{{ msg.id }}</strong>
+            —
+            {% if msg.level == 'CRITICAL' %}
+            <span class="badge badge-red">CRITICAL</span>
+            {% elif msg.level == 'URGENT' %}
+            <span class="badge badge-red">URGENT</span>
+            {% elif msg.level == 'WARNING' %}
+            <span class="badge badge-yellow">WARNING</span>
+            {% else %}
+            <span class="badge badge-blue">INFO</span>
+            {% endif %}
+            —
+            <strong>{{ msg.subject }}</strong>
+        </div>
+        <span style="color: var(--text-muted); font-size: 13px;">{{ msg.sent_at }}</span>
+    </div>
+    <div class="log-entry-body">{{ msg.body }}</div>
+</div>
+{% endfor %}
+{% endblock %}

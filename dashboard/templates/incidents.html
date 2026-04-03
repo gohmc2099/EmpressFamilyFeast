@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Incidents{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Incidents</h2>
+    <p>All delivery incidents logged by ERIC</p>
+</div>
+
+<div class="table-wrap">
+    <div class="table-header">
+        <h3>{{ incidents|length }} Incidents</h3>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Severity</th>
+                <th>Type</th>
+                <th>Driver</th>
+                <th>Description</th>
+                <th>Logged At</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inc in incidents %}
+            <tr>
+                <td><strong>{{ inc.id }}</strong></td>
+                <td>
+                    {% if inc.severity == 'CRITICAL' %}
+                    <span class="badge badge-red">CRITICAL</span>
+                    {% elif inc.severity == 'URGENT' %}
+                    <span class="badge badge-red">URGENT</span>
+                    {% elif inc.severity == 'WARNING' %}
+                    <span class="badge badge-yellow">WARNING</span>
+                    {% else %}
+                    <span class="badge badge-blue">INFO</span>
+                    {% endif %}
+                </td>
+                <td>{{ inc.type }}</td>
+                <td>{{ inc.driver }}</td>
+                <td>{{ inc.description }}</td>
+                <td>{{ inc.logged_at }}</td>
+                <td>
+                    {% if inc.resolved %}
+                    <span class="badge badge-green">Resolved</span>
+                    <br><small style="color: var(--text-muted);">{{ inc.resolved_at }}</small>
+                    {% else %}
+                    <span class="badge badge-red">Open</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if not inc.resolved %}
+                    <form method="POST" action="{{ url_for('incident_resolve', incident_id=inc.id) }}">
+                        <button type="submit" class="btn btn-sm">Resolve</button>
+                    </form>
+                    {% else %}
+                    —
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not incidents %}
+            <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">No incidents logged.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

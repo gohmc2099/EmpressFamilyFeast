@@ -9,11 +9,18 @@ from db.database import get_db
 
 
 SEED_DRIVERS = [
-    ("Marcus", "available", "Van #1 — Ford Transit", 1, "+44 7700 100001", "North London"),
-    ("Amara", "available", "Van #2 — Mercedes Sprinter", 1, "+44 7700 100002", "East London"),
-    ("Kwame", "available", "Van #3 — Peugeot Boxer", 1, "+44 7700 100003", "South London"),
-    ("Fatima", "available", "Car #1 — Toyota Yaris", 1, "+44 7700 100004", "West London"),
+    ("Marcus", "available", "Van #1 — Ford Transit", 1, "+44 7700 100001", "North London", "North London Drivers"),
+    ("Amara", "available", "Van #2 — Mercedes Sprinter", 1, "+44 7700 100002", "East London", "East London Drivers"),
+    ("Kwame", "available", "Van #3 — Peugeot Boxer", 1, "+44 7700 100003", "South London", "South London Drivers"),
+    ("Fatima", "available", "Car #1 — Toyota Yaris", 1, "+44 7700 100004", "West London", "West London Drivers"),
 ]
+
+SEED_SCHEDULES = {
+    "Marcus": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+    "Amara": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+    "Kwame": ["Monday", "Wednesday", "Friday", "Saturday"],
+    "Fatima": ["Tuesday", "Thursday", "Saturday"],
+}
 
 SEED_DELIVERIES = [
     ("DEL-001", "Marcus", "Mrs. Johnson", "12 Maple Road, N1 2AB"),
@@ -37,18 +44,24 @@ def seed_database(reset: bool = False) -> None:
             DELETE FROM incidents;
             DELETE FROM ops_messages;
             DELETE FROM deliveries;
+            DELETE FROM stops;
+            DELETE FROM driver_schedule;
             DELETE FROM drivers;
         """)
 
     # Only seed if tables are empty
     if db.count_drivers() == 0:
         db.conn.executemany(
-            "INSERT INTO drivers (name, status, vehicle, vehicle_ok, phone, route) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO drivers (name, status, vehicle, vehicle_ok, phone, route, whatsapp_group) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
             SEED_DRIVERS,
         )
         db.conn.commit()
         print(f"Seeded {len(SEED_DRIVERS)} drivers.")
+
+        for driver_name, active_days in SEED_SCHEDULES.items():
+            db.set_driver_schedule(driver_name, active_days)
+        print(f"Seeded schedules for {len(SEED_SCHEDULES)} drivers.")
 
     delivery_count = db.conn.execute("SELECT COUNT(*) FROM deliveries").fetchone()[0]
     if delivery_count == 0:

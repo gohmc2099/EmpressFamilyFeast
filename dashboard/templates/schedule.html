@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Weekly Schedule{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Weekly Schedule</h2>
+    <p>Which drivers are active on which days this week</p>
+</div>
+
+<div class="table-wrap">
+    <table class="schedule-table">
+        <thead>
+            <tr>
+                <th>Driver</th>
+                <th>Route</th>
+                {% for day in days %}
+                <th style="text-align: center;">{{ day[:3] }}</th>
+                {% endfor %}
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for entry in weekly %}
+            <tr>
+                <td><strong>{{ entry.driver }}</strong></td>
+                <td>{{ entry.route }}</td>
+                {% for day in days %}
+                <td class="{% if entry.schedule[day] %}active{% else %}inactive{% endif %}">
+                    {% if entry.schedule[day] %}YES{% else %}-{% endif %}
+                </td>
+                {% endfor %}
+                <td>
+                    <a href="{{ url_for('driver_edit', name=entry.driver) }}" class="btn btn-sm">Edit</a>
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not weekly %}
+            <tr><td colspan="{{ days|length + 3 }}" style="text-align: center; color: var(--text-muted); padding: 24px;">No drivers added yet.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<p style="color: var(--text-muted); font-size: 13px;">
+    To change a driver's schedule, click "Edit" and update their active days.
+</p>
+{% endblock %}

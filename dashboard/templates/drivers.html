@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Drivers{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Drivers</h2>
+    <p>Manage drivers, WhatsApp groups, vehicles, and stops</p>
+</div>
+
+<div style="margin-bottom: 20px;">
+    <a href="{{ url_for('driver_add') }}" class="btn btn-primary">+ Add Driver</a>
+</div>
+
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Status</th>
+                <th>Phone</th>
+                <th>WhatsApp Group</th>
+                <th>Vehicle</th>
+                <th>Route</th>
+                <th>Stops</th>
+                <th>Last Seen</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for d in drivers %}
+            <tr>
+                <td><strong>{{ d.name }}</strong></td>
+                <td>
+                    {% if d.status == 'available' %}
+                    <span class="badge badge-green">Available</span>
+                    {% elif d.status == 'on_delivery' %}
+                    <span class="badge badge-blue">On Delivery</span>
+                    {% elif d.status == 'unavailable' %}
+                    <span class="badge badge-red">Unavailable</span>
+                    {% else %}
+                    <span class="badge badge-yellow">{{ d.status }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ d.phone }}</td>
+                <td>{{ d.whatsapp_group or '—' }}</td>
+                <td>{{ d.vehicle }}</td>
+                <td>{{ d.route }}</td>
+                <td>
+                    <a href="{{ url_for('driver_stops', name=d.name) }}" class="btn btn-sm">
+                        {{ d.stops|length }} stops
+                    </a>
+                </td>
+                <td>{{ d.last_seen or 'Never' }}</td>
+                <td>
+                    <div style="display: flex; gap: 6px;">
+                        <a href="{{ url_for('driver_edit', name=d.name) }}" class="btn btn-sm">Edit</a>
+                        <form method="POST" action="{{ url_for('driver_delete', name=d.name) }}"
+                              onsubmit="return confirm('Delete driver {{ d.name }}?')">
+                            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not drivers %}
+            <tr><td colspan="9" style="text-align: center; color: var(--text-muted); padding: 24px;">No drivers yet. Click "Add Driver" to get started.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

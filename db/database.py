@@ -32,13 +32,31 @@ class Database:
     def _create_tables(self) -> None:
         self.conn.executescript("""
             CREATE TABLE IF NOT EXISTS drivers (
-                name        TEXT PRIMARY KEY,
-                status      TEXT NOT NULL DEFAULT 'available',
-                vehicle     TEXT NOT NULL,
-                vehicle_ok  INTEGER NOT NULL DEFAULT 1,
-                phone       TEXT NOT NULL,
-                route       TEXT NOT NULL,
-                last_seen   TEXT
+                name            TEXT PRIMARY KEY,
+                status          TEXT NOT NULL DEFAULT 'available',
+                vehicle         TEXT NOT NULL,
+                vehicle_ok      INTEGER NOT NULL DEFAULT 1,
+                phone           TEXT NOT NULL,
+                route           TEXT NOT NULL,
+                whatsapp_group  TEXT NOT NULL DEFAULT '',
+                last_seen       TEXT
+            );
+
+            CREATE TABLE IF NOT EXISTS driver_schedule (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                driver      TEXT NOT NULL REFERENCES drivers(name) ON DELETE CASCADE,
+                day_of_week TEXT NOT NULL,
+                active      INTEGER NOT NULL DEFAULT 1,
+                UNIQUE(driver, day_of_week)
+            );
+
+            CREATE TABLE IF NOT EXISTS stops (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                driver      TEXT NOT NULL REFERENCES drivers(name) ON DELETE CASCADE,
+                stop_order  INTEGER NOT NULL DEFAULT 0,
+                customer    TEXT NOT NULL,
+                address     TEXT NOT NULL,
+                notes       TEXT NOT NULL DEFAULT ''
             );
 
             CREATE TABLE IF NOT EXISTS deliveries (
@@ -87,6 +105,10 @@ class Database:
                 verified_at     TEXT NOT NULL
             );
         """)
+        # Migrate: add whatsapp_group column if missing (existing databases)
+        cols = [r[1] for r in self.conn.execute("PRAGMA table_info(drivers)").fetchall()]
+        if "whatsapp_group" not in cols:
+            self.conn.execute("ALTER TABLE drivers ADD COLUMN whatsapp_group TEXT NOT NULL DEFAULT ''")
         self.conn.commit()
 
     # ------------------------------------------------------------------
@@ -117,8 +139,101 @@ class Database:
         row = self.conn.execute("SELECT 1 FROM drivers WHERE name = ?", (name,)).fetchone()
         return row is not None
 
+    def add_driver(
+        self, name: str, vehicle: str, phone: str, route: str,
+        whatsapp_group: str = "", status: str = "available",
+    ) -> dict:
+        self.conn.execute(
+            "INSERT INTO drivers (name, status, vehicle, vehicle_ok, phone, route, whatsapp_group) "
+            "VALUES (?, ?, ?, 1, ?, ?, ?)",
+            (name, status, vehicle, phone, route, whatsapp_group),
+        )
+        self.conn.commit()
+        return self.get_driver(name)
+
+    def update_driver(
+        self, name: str, vehicle: str, phone: str, route: str,
+        whatsapp_group: str = "", status: str = "available",
+    ) -> None:
+        self.conn.execute(
+            "UPDATE drivers SET vehicle = ?, phone = ?, route = ?, "
+            "whatsapp_group = ?, status = ? WHERE name = ?",
+            (vehicle, phone, route, whatsapp_group, status, name),
+        )
+        self.conn.commit()
+
+    def delete_driver(self, name: str) -> None:
+        self.conn.execute("DELETE FROM stops WHERE driver = ?", (name,))
+        self.conn.execute("DELETE FROM driver_schedule WHERE driver = ?", (name,))
+        self.conn.execute("DELETE FROM drivers WHERE name = ?", (name,))
+        self.conn.commit()
+
     def count_drivers(self) -> int:
         return self.conn.execute("SELECT COUNT(*) FROM drivers").fetchone()[0]
+
+    # ------------------------------------------------------------------
+    # Driver schedule (weekly)
+    # ------------------------------------------------------------------
+
+    DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+    def get_driver_schedule(self, driver: str) -> dict[str, bool]:
+        rows = self.conn.execute(
+            "SELECT day_of_week, active FROM driver_schedule WHERE driver = ?", (driver,)
+        ).fetchall()
+        schedule = {day: False for day in self.DAYS_OF_WEEK}
+        for r in rows:
+            schedule[r["day_of_week"]] = bool(r["active"])
+        return schedule
+
+    def set_driver_schedule(self, driver: str, active_days: list[str]) -> None:
+        self.conn.execute("DELETE FROM driver_schedule WHERE driver = ?", (driver,))
+        for day in self.DAYS_OF_WEEK:
+            active = 1 if day in active_days else 0
+            self.conn.execute(
+                "INSERT INTO driver_schedule (driver, day_of_week, active) VALUES (?, ?, ?)",
+                (driver, day, active),
+            )
+        self.conn.commit()
+
+    def get_weekly_schedule(self) -> list[dict]:
+        drivers = self.get_all_drivers()
+        result = []
+        for d in drivers:
+            schedule = self.get_driver_schedule(d["name"])
+            result.append({"driver": d["name"], "route": d["route"], "schedule": schedule})
+        return result
+
+    # ------------------------------------------------------------------
+    # Stops
+    # ------------------------------------------------------------------
+
+    def get_stops_for_driver(self, driver: str) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT * FROM stops WHERE driver = ? ORDER BY stop_order", (driver,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def add_stop(self, driver: str, customer: str, address: str, notes: str = "", stop_order: int = 0) -> dict:
+        cursor = self.conn.execute(
+            "INSERT INTO stops (driver, stop_order, customer, address, notes) VALUES (?, ?, ?, ?, ?)",
+            (driver, stop_order, customer, address, notes),
+        )
+        self.conn.commit()
+        row = self.conn.execute("SELECT * FROM stops WHERE id = ?", (cursor.lastrowid,)).fetchone()
+        return dict(row)
+
+    def delete_stop(self, stop_id: int) -> None:
+        self.conn.execute("DELETE FROM stops WHERE id = ?", (stop_id,))
+        self.conn.commit()
+
+    def resolve_incident(self, incident_id: str) -> None:
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.conn.execute(
+            "UPDATE incidents SET resolved = 1, resolved_at = ? WHERE id = ?",
+            (now, incident_id),
+        )
+        self.conn.commit()
 
     # ------------------------------------------------------------------
     # Deliveries
