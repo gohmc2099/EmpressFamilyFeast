@@ -134,10 +134,19 @@ class GoogleSheetsDatabase:
     # Drivers
     # ------------------------------------------------------------------
 
+    def _safe_int(self, value, default: int = 0) -> int:
+        """Convert a value to int, handling empty strings from Sheets."""
+        if value == "" or value is None:
+            return default
+        try:
+            return int(value)
+        except (ValueError, TypeError):
+            return default
+
     def get_all_drivers(self) -> list[dict]:
         records = self._get_all_records("Drivers")
         for r in records:
-            r["vehicle_ok"] = int(r.get("vehicle_ok", 1))
+            r["vehicle_ok"] = self._safe_int(r.get("vehicle_ok", 1), 1)
         return sorted(records, key=lambda d: d.get("name", ""))
 
     def get_driver(self, name: str) -> dict | None:
@@ -211,7 +220,7 @@ class GoogleSheetsDatabase:
         schedule = {day: False for day in self.DAYS_OF_WEEK}
         for r in records:
             if r.get("driver") == driver:
-                schedule[r["day_of_week"]] = bool(int(r.get("active", 0)))
+                schedule[r["day_of_week"]] = bool(self._safe_int(r.get("active", 0)))
         return schedule
 
     def set_driver_schedule(self, driver: str, active_days: list[str]) -> None:
@@ -243,7 +252,7 @@ class GoogleSheetsDatabase:
         max_id = 0
         for r in all_records:
             try:
-                max_id = max(max_id, int(r.get("id", 0)))
+                max_id = max(max_id, self._safe_int(r.get("id", 0)))
             except (ValueError, TypeError):
                 pass
         new_id = max_id + 1
@@ -262,7 +271,7 @@ class GoogleSheetsDatabase:
     def get_all_deliveries(self) -> list[dict]:
         records = self._get_all_records("Deliveries")
         for r in records:
-            r["photo_verified"] = bool(int(r.get("photo_verified", 0)))
+            r["photo_verified"] = bool(self._safe_int(r.get("photo_verified", 0)))
         return records
 
     def get_deliveries_by_driver(self, driver: str) -> list[dict]:
@@ -314,7 +323,7 @@ class GoogleSheetsDatabase:
     def get_all_incidents(self) -> list[dict]:
         records = self._get_all_records("Incidents")
         for r in records:
-            r["resolved"] = bool(int(r.get("resolved", 0)))
+            r["resolved"] = bool(self._safe_int(r.get("resolved", 0)))
         return sorted(records, key=lambda i: i.get("logged_at", ""), reverse=True)
 
     def count_incidents(self) -> int:
@@ -357,7 +366,7 @@ class GoogleSheetsDatabase:
         max_id = 0
         for r in all_records:
             try:
-                max_id = max(max_id, int(r.get("id", 0)))
+                max_id = max(max_id, self._safe_int(r.get("id", 0)))
             except (ValueError, TypeError):
                 pass
         new_id = max_id + 1
