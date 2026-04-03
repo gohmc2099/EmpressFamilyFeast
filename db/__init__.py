@@ -8,6 +8,10 @@ from __future__ import annotations
 
 import os
 
+# Ensure .env is loaded regardless of entry point
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
+
 
 def get_db():
     """Get the database instance — Google Sheets if configured, else SQLite."""

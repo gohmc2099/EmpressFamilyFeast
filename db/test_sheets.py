@@ -9,7 +9,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
 
 sheet_id = os.environ.get("GOOGLE_SHEET_ID", "")
 creds_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "credentials.json")
