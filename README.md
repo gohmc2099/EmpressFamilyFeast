@@ -8,7 +8,9 @@ A Python-based multi-agent AI system powered by Anthropic Claude. Includes a con
 - **Task Automation Agent** – Breaks down and executes multi-step tasks
 - **ERIC Agent** – Escalating & Routing Intelligence Coordinator for delivery logistics
 - **Multi-Agent Orchestrator** – Routes requests to specialised agents and synthesises results
-- **Tool System** – Extensible tool registry with built-in tools and logistics-specific tools
+- **Claude Vision** – AI-powered proof-of-delivery photo verification
+- **Persistent Database** – SQLite storage for all delivery data, incidents, and verifications
+- **Tool System** – Extensible tool registry with built-in, logistics, and vision tools
 
 ## Setup
 
@@ -62,9 +64,14 @@ registry.register(Tool(
 ├── tools/
 │   ├── registry.py      # Tool & ToolRegistry classes
 │   ├── builtin.py       # Built-in tools
-│   └── logistics.py     # Logistics tools for ERIC
+│   ├── logistics.py     # Logistics tools for ERIC (database-backed)
+│   └── vision.py        # Claude Vision photo analysis
+├── db/
+│   ├── database.py      # SQLite database layer
+│   └── seed.py          # Seed data for drivers & deliveries
 ├── config/
 │   └── settings.py      # Configuration
+├── data/                # SQLite database files (gitignored)
 ├── main.py              # Entry point & demos
 └── requirements.txt
 ```
@@ -88,13 +95,40 @@ ERIC is the dedicated logistics agent for Empress Family Feast delivery operatio
 ### ERIC's tools
 | Tool | Description |
 |------|-------------|
-| `driver_roll_call` | Morning check-in with all drivers |
+| `driver_roll_call` | Morning check-in with all drivers (database-backed) |
 | `get_driver_status` | Status of a specific driver |
 | `get_todays_deliveries` | All deliveries, optionally filtered by driver |
-| `verify_proof_of_delivery` | CV-based address verification for delivery photos |
+| `verify_delivery_photo` | **Claude Vision AI** — analyses delivery photos for address evidence, delivery proof, and quality |
+| `analyse_photo` | General-purpose Claude Vision photo analysis |
 | `check_silent_drivers` | Detect drivers who haven't reported in |
 | `log_incident` | Log incidents with severity and timestamp |
 | `send_ops_alert` | Send alerts to the operations team |
 | `get_delivery_summary` | Full day summary (completed/failed/pending) |
 | `log_delivery_outcome` | Record final delivery outcome |
+
+### Claude Vision — How photo verification works
+
+When a driver submits a proof-of-delivery photo, ERIC uses the `verify_delivery_photo` tool:
+
+1. The photo is loaded and sent to Claude's vision model
+2. Claude analyses the image for: visible addresses, house numbers, street names, postcodes
+3. The detected address is compared against the expected customer address
+4. Claude checks for delivery evidence (packages, food bags, doorstep placement)
+5. A confidence score and match result (MATCH / MISMATCH / INCONCLUSIVE) is returned
+6. The result is persisted to the `photo_verifications` table in SQLite
+7. The delivery status is updated automatically based on the result
+
+### Persistent Database
+
+All data is stored in SQLite (`data/empress.db`):
+
+| Table | Contents |
+|-------|----------|
+| `drivers` | Driver profiles, availability, vehicle status, last check-in time |
+| `deliveries` | All deliveries with status, photo verification results |
+| `incidents` | Logged incidents with severity and timestamps |
+| `ops_messages` | All alerts sent to the operations team |
+| `photo_verifications` | Full Claude Vision analysis results for every photo checked |
+
+Data survives between sessions. Run `python -m db.seed --reset` to reset to defaults.
 

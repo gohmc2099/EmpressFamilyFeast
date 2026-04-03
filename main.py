@@ -4,9 +4,17 @@ Usage examples for the chatbot, task automation, and multi-agent orchestrator.
 """
 
 from agents import ChatbotAgent, ERICAgent, MultiAgentOrchestrator, TaskAutomationAgent
+from db.database import get_db
+from db.seed import seed_database
 from tools.builtin import register_builtin_tools
 from tools.logistics import register_logistics_tools
 from tools.registry import ToolRegistry
+
+
+def init_database() -> None:
+    """Ensure the database exists and is seeded with initial data."""
+    get_db()
+    seed_database()
 
 
 def create_tool_registry() -> ToolRegistry:
@@ -57,11 +65,13 @@ def demo_eric() -> None:
 
     print("=== ERIC — Escalating & Routing Intelligence Coordinator ===")
     print("Logistics agent for Empress Family Feast delivery operations.")
+    print("Powered by Claude Vision + SQLite persistent database.")
     print()
     print("Quick commands:")
     print("  roll call   — Morning driver check-in")
     print("  silent      — Check for silent drivers")
     print("  summary     — End-of-day delivery summary")
+    print("  verify      — Verify a delivery photo")
     print("  quit        — Exit")
     print()
 
@@ -80,6 +90,13 @@ def demo_eric() -> None:
             response = eric.check_silent_drivers()
         elif user_input.lower() == "summary":
             response = eric.end_of_day_report()
+        elif user_input.lower() == "verify":
+            delivery_id = input("  Delivery ID (e.g. DEL-001): ").strip()
+            photo_path = input("  Photo file path: ").strip()
+            response = eric.run(
+                f"Verify the proof-of-delivery photo for delivery {delivery_id}. "
+                f"The photo is at: {photo_path}"
+            )
         else:
             response = eric.run(user_input)
 
@@ -113,6 +130,8 @@ def demo_orchestrator() -> None:
 
 
 if __name__ == "__main__":
+    init_database()
+    print()
     print("Empress Family Feast – AI Agent System")
     print("=" * 42)
     print("1. Chatbot Agent")

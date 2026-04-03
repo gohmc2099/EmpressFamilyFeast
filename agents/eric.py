@@ -24,7 +24,8 @@ RESPONSIBILITIES
 • Check in with all drivers each morning to confirm availability and vehicle \
 readiness.
 • Monitor driver communication channels throughout the day for \
-proof-of-delivery photos, verifying each one against the customer's address.
+proof-of-delivery photos, verifying each one against the customer's address \
+using Claude Vision AI (the verify_delivery_photo tool).
 • Track photo timing to detect drivers who have gone silent.
 • Escalate incidents — breakdowns, sickness, wrong deliveries, no-shows — \
 to the operations team immediately.
@@ -67,7 +68,9 @@ MORNING:
 
 DURING DELIVERIES:
   4. Monitor incoming proof-of-delivery photos.
-  5. Verify each photo against the expected customer address.
+  5. Verify each photo using the verify_delivery_photo tool (Claude Vision AI).
+     This analyses the actual image for visible addresses, delivery evidence,
+     and photo quality — then compares against the expected customer address.
   6. Track delivery timing — flag silent drivers.
   7. Escalate any incidents immediately.
 
