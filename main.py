@@ -3,8 +3,9 @@
 Usage examples for the chatbot, task automation, and multi-agent orchestrator.
 """
 
-from agents import ChatbotAgent, MultiAgentOrchestrator, TaskAutomationAgent
+from agents import ChatbotAgent, ERICAgent, MultiAgentOrchestrator, TaskAutomationAgent
 from tools.builtin import register_builtin_tools
+from tools.logistics import register_logistics_tools
 from tools.registry import ToolRegistry
 
 
@@ -47,12 +48,54 @@ def demo_task_agent() -> None:
     print(f"Steps taken: {result['steps_taken']}")
 
 
+def demo_eric() -> None:
+    """Run ERIC — the logistics operations agent."""
+    registry = ToolRegistry()
+    register_builtin_tools(registry)
+    register_logistics_tools(registry)
+    eric = ERICAgent(tool_registry=registry)
+
+    print("=== ERIC — Escalating & Routing Intelligence Coordinator ===")
+    print("Logistics agent for Empress Family Feast delivery operations.")
+    print()
+    print("Quick commands:")
+    print("  roll call   — Morning driver check-in")
+    print("  silent      — Check for silent drivers")
+    print("  summary     — End-of-day delivery summary")
+    print("  quit        — Exit")
+    print()
+
+    while True:
+        user_input = input("Ops> ").strip()
+        if user_input.lower() in ("quit", "exit", "q"):
+            print("ERIC signing off.")
+            break
+        if not user_input:
+            continue
+
+        # Shortcut commands
+        if user_input.lower() == "roll call":
+            response = eric.morning_roll_call()
+        elif user_input.lower() == "silent":
+            response = eric.check_silent_drivers()
+        elif user_input.lower() == "summary":
+            response = eric.end_of_day_report()
+        else:
+            response = eric.run(user_input)
+
+        print(f"\nERIC: {response}\n")
+
+
 def demo_orchestrator() -> None:
     """Run the multi-agent orchestrator."""
     registry = create_tool_registry()
+    logistics_registry = ToolRegistry()
+    register_builtin_tools(logistics_registry)
+    register_logistics_tools(logistics_registry)
     chatbot = ChatbotAgent(name="ChatBot", tool_registry=registry)
     task_agent = TaskAutomationAgent(name="TaskBot", tool_registry=registry)
-    orchestrator = MultiAgentOrchestrator(agents=[chatbot, task_agent])
+    eric = ERICAgent(tool_registry=logistics_registry)
+    orchestrator = MultiAgentOrchestrator(agents=[chatbot, task_agent, eric])
 
     print("=== Multi-Agent Orchestrator ===")
     print("The orchestrator will route your request to the best agent.")
@@ -74,14 +117,17 @@ if __name__ == "__main__":
     print("=" * 42)
     print("1. Chatbot Agent")
     print("2. Task Automation Agent")
-    print("3. Multi-Agent Orchestrator")
+    print("3. ERIC — Logistics Operations Agent")
+    print("4. Multi-Agent Orchestrator (all agents)")
     print()
-    choice = input("Select a mode (1/2/3): ").strip()
+    choice = input("Select a mode (1/2/3/4): ").strip()
     if choice == "1":
         demo_chatbot()
     elif choice == "2":
         demo_task_agent()
     elif choice == "3":
+        demo_eric()
+    elif choice == "4":
         demo_orchestrator()
     else:
         print("Invalid choice.")
