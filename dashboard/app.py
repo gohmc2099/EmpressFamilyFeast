@@ -12,6 +12,10 @@ import sys
 # Ensure project root is on the path so imports work
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
+# Load .env BEFORE any db imports
+from dotenv import load_dotenv
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
+
 import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash
 
