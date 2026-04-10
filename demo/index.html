@@ -68,18 +68,21 @@
       }
 
       /* ---------- Stagger on initial load ---------- */
-      /* Stagger is decorative — short delays (30-80ms), never blocks interaction. */
-      .stagger > * {
+      /* Stagger is decorative — short delays (30-80ms), never blocks interaction.
+         A running animation on a section would keep it as a composited stacking
+         context and trap the popover inside. So we animate only until
+         animationend, then JS removes the class. */
+      .stagger > *.staging {
         opacity: 0;
         transform: translateY(8px);
         animation: rise 500ms var(--ease-out) forwards;
       }
-      .stagger > *:nth-child(1) { animation-delay: 40ms; }
-      .stagger > *:nth-child(2) { animation-delay: 90ms; }
-      .stagger > *:nth-child(3) { animation-delay: 140ms; }
-      .stagger > *:nth-child(4) { animation-delay: 190ms; }
-      .stagger > *:nth-child(5) { animation-delay: 240ms; }
-      .stagger > *:nth-child(6) { animation-delay: 290ms; }
+      .stagger > *.staging:nth-child(1) { animation-delay: 40ms; }
+      .stagger > *.staging:nth-child(2) { animation-delay: 90ms; }
+      .stagger > *.staging:nth-child(3) { animation-delay: 140ms; }
+      .stagger > *.staging:nth-child(4) { animation-delay: 190ms; }
+      .stagger > *.staging:nth-child(5) { animation-delay: 240ms; }
+      .stagger > *.staging:nth-child(6) { animation-delay: 290ms; }
 
       @keyframes rise {
         to {
@@ -543,6 +546,25 @@
     <div class="toaster" id="toaster" aria-live="polite" aria-atomic="false"></div>
 
     <script>
+      // ---------- Stagger cleanup ----------
+      // Add `staging` to every direct child of .stagger, then strip it after
+      // the animation ends. This keeps sections from being composited layers
+      // (which would trap the popover in a per-section stacking context).
+      {
+        const stager = document.querySelector('.stagger');
+        const items = Array.from(stager.children);
+        items.forEach((el) => el.classList.add('staging'));
+        items.forEach((el) => {
+          el.addEventListener(
+            'animationend',
+            () => {
+              el.classList.remove('staging');
+            },
+            { once: true }
+          );
+        });
+      }
+
       // ---------- Popover ----------
       const popoverTrigger = document.getElementById("popover-trigger");
       const popover = document.getElementById("popover");
