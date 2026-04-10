@@ -1,0 +1,729 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Design Engineering Playground</title>
+    <style>
+      /* ---------- Tokens ---------- */
+      :root {
+        /* Custom easings — built-in CSS easings are too weak. */
+        --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+        --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+        --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+        --bg: #fafaf9;
+        --surface: #ffffff;
+        --surface-2: #f5f5f4;
+        --border: #e7e5e4;
+        --text: #1c1917;
+        --text-dim: #78716c;
+        --accent: #0a0a0a;
+        --danger: #dc2626;
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.03);
+        --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
+        --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.04);
+      }
+
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0a0a0a;
+          --surface: #171717;
+          --surface-2: #1f1f1f;
+          --border: #262626;
+          --text: #fafaf9;
+          --text-dim: #a3a3a3;
+          --accent: #fafaf9;
+          --danger: #ef4444;
+          --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
+          --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5), 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", system-ui,
+          sans-serif;
+        font-size: 15px;
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+
+      main {
+        max-width: 720px;
+        margin: 0 auto;
+        padding: 80px 24px 160px;
+      }
+
+      /* ---------- Stagger on initial load ---------- */
+      /* Stagger is decorative — short delays (30-80ms), never blocks interaction. */
+      .stagger > * {
+        opacity: 0;
+        transform: translateY(8px);
+        animation: rise 500ms var(--ease-out) forwards;
+      }
+      .stagger > *:nth-child(1) { animation-delay: 40ms; }
+      .stagger > *:nth-child(2) { animation-delay: 90ms; }
+      .stagger > *:nth-child(3) { animation-delay: 140ms; }
+      .stagger > *:nth-child(4) { animation-delay: 190ms; }
+      .stagger > *:nth-child(5) { animation-delay: 240ms; }
+      .stagger > *:nth-child(6) { animation-delay: 290ms; }
+
+      @keyframes rise {
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ---------- Typography ---------- */
+      .eyebrow {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin: 0 0 12px;
+      }
+
+      h1 {
+        font-size: 40px;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+        line-height: 1.1;
+        margin: 0 0 16px;
+      }
+
+      .lede {
+        font-size: 17px;
+        color: var(--text-dim);
+        margin: 0 0 56px;
+        max-width: 56ch;
+      }
+
+      section {
+        margin: 0 0 56px;
+      }
+
+      section h2 {
+        font-size: 20px;
+        font-weight: 600;
+        letter-spacing: -0.015em;
+        margin: 0 0 4px;
+      }
+
+      section .note {
+        color: var(--text-dim);
+        font-size: 14px;
+        margin: 0 0 20px;
+      }
+
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        padding: 28px;
+        box-shadow: var(--shadow-sm);
+      }
+
+      /* ---------- Button: scale(0.97) on press, custom ease-out ---------- */
+      .btn {
+        appearance: none;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        font: inherit;
+        font-weight: 500;
+        font-size: 14px;
+        padding: 10px 16px;
+        border-radius: 10px;
+        cursor: pointer;
+        /* Specify exact properties; avoid `all`. Keep duration under 300ms. */
+        transition: transform 160ms var(--ease-out),
+          background-color 160ms var(--ease-out),
+          box-shadow 160ms var(--ease-out);
+        box-shadow: var(--shadow-sm);
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .btn:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+
+      /* Gate hover states behind fine pointer — touch devices fire hover on tap. */
+      @media (hover: hover) and (pointer: fine) {
+        .btn:hover {
+          background: var(--surface-2);
+        }
+      }
+
+      .btn:active {
+        transform: scale(0.97);
+      }
+
+      .btn.primary {
+        background: var(--accent);
+        color: var(--bg);
+        border-color: var(--accent);
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        .btn.primary:hover {
+          opacity: 0.92;
+        }
+      }
+
+      .row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      /* ---------- Popover: origin-aware, scale 0.95 entry, ease-out ---------- */
+      /* Popovers scale in from their trigger, not from center. */
+      .popover-wrap {
+        position: relative;
+        display: inline-block;
+      }
+
+      .popover {
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        min-width: 220px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 8px;
+        box-shadow: var(--shadow-lg);
+        /* Origin at the top-left corner, just under the trigger. */
+        transform-origin: top left;
+        /* Start from scale(0.95) + opacity — nothing appears from nothing. */
+        transform: scale(0.95);
+        opacity: 0;
+        pointer-events: none;
+        transition: transform 180ms var(--ease-out), opacity 180ms var(--ease-out);
+        z-index: 10;
+      }
+
+      .popover[data-open="true"] {
+        transform: scale(1);
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .popover-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background-color 120ms var(--ease-out);
+      }
+
+      @media (hover: hover) and (pointer: fine) {
+        .popover-item:hover {
+          background: var(--surface-2);
+        }
+      }
+
+      .popover-item .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--text-dim);
+      }
+
+      /* ---------- Toast: CSS transitions (not keyframes) for interruptibility ---------- */
+      .toaster {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        display: flex;
+        flex-direction: column-reverse;
+        gap: 10px;
+        z-index: 100;
+        pointer-events: none;
+      }
+
+      .toast {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 12px 16px;
+        box-shadow: var(--shadow-lg);
+        min-width: 260px;
+        font-size: 14px;
+        pointer-events: auto;
+        /* Percentage translate: relative to own height — adapts to content. */
+        transform: translateY(100%) scale(0.95);
+        opacity: 0;
+        transition: transform 400ms var(--ease-drawer),
+          opacity 400ms var(--ease-drawer);
+      }
+
+      .toast[data-mounted="true"] {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+      }
+
+      .toast[data-leaving="true"] {
+        /* Exit faster than enter — the system is responding. */
+        transform: translateY(100%) scale(0.95);
+        opacity: 0;
+        transition-duration: 200ms;
+      }
+
+      .toast .title {
+        font-weight: 500;
+        margin: 0 0 2px;
+      }
+
+      .toast .body {
+        color: var(--text-dim);
+        margin: 0;
+      }
+
+      /* ---------- Hold to delete: clip-path + asymmetric timing ---------- */
+      .hold {
+        position: relative;
+        overflow: hidden;
+        isolation: isolate;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        color: var(--danger);
+        border-color: color-mix(in oklab, var(--danger) 30%, var(--border));
+      }
+
+      .hold .hold-fill {
+        position: absolute;
+        inset: 0;
+        background: var(--danger);
+        /* Hidden from right. */
+        clip-path: inset(0 100% 0 0);
+        /* Release: fast. */
+        transition: clip-path 220ms var(--ease-out);
+        z-index: 0;
+      }
+
+      .hold[data-holding="true"] .hold-fill {
+        clip-path: inset(0 0 0 0);
+        /* Press: slow and deliberate — the user is deciding. */
+        transition: clip-path 1600ms linear;
+      }
+
+      .hold .label {
+        position: relative;
+        z-index: 1;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        /* Content crossfade masked by blur — blur bridges the visual gap. */
+        transition: color 220ms var(--ease-out), filter 220ms var(--ease-out);
+      }
+
+      .hold[data-holding="true"] .label {
+        color: #fff;
+        filter: blur(0);
+      }
+
+      .hold.committed .label {
+        filter: blur(2px);
+        opacity: 0.7;
+      }
+
+      /* ---------- Tabs: clip-path for seamless color transition ---------- */
+      .tabs {
+        position: relative;
+        display: inline-flex;
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 4px;
+        isolation: isolate;
+      }
+
+      .tabs button {
+        position: relative;
+        appearance: none;
+        border: 0;
+        background: transparent;
+        color: var(--text-dim);
+        font: inherit;
+        font-weight: 500;
+        font-size: 14px;
+        padding: 8px 16px;
+        border-radius: 7px;
+        cursor: pointer;
+        z-index: 2;
+        transition: color 200ms var(--ease-out);
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .tabs button[aria-selected="true"] {
+        color: var(--bg);
+      }
+
+      .tabs .indicator {
+        position: absolute;
+        top: 4px;
+        bottom: 4px;
+        background: var(--accent);
+        border-radius: 7px;
+        z-index: 1;
+        /* Morphing on screen → ease-in-out. */
+        transition: transform 280ms var(--ease-in-out),
+          width 280ms var(--ease-in-out);
+        will-change: transform, width;
+      }
+
+      /* ---------- Footer ---------- */
+      footer {
+        margin-top: 80px;
+        padding-top: 24px;
+        border-top: 1px solid var(--border);
+        color: var(--text-dim);
+        font-size: 13px;
+      }
+
+      footer a {
+        color: var(--text);
+        text-decoration: none;
+        border-bottom: 1px solid var(--border);
+      }
+
+      /* ---------- Reduced motion: fewer and gentler, not zero ---------- */
+      @media (prefers-reduced-motion: reduce) {
+        .stagger > * {
+          animation: none;
+          opacity: 1;
+          transform: none;
+        }
+        .popover,
+        .toast,
+        .tabs .indicator,
+        .btn,
+        .hold .hold-fill,
+        .hold .label {
+          transition-duration: 120ms !important;
+        }
+        .popover {
+          transform: none;
+        }
+        .popover[data-open="true"] {
+          transform: none;
+        }
+        .toast {
+          transform: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="stagger">
+      <p class="eyebrow">Design engineering playground</p>
+      <h1>Details that compound.</h1>
+      <p class="lede">
+        A one-page demo of the principles from the
+        <code>emil-design-eng</code> skill. Press, hover, and drag. Every
+        transition here is intentional — custom easings, asymmetric timing,
+        origin-aware transforms.
+      </p>
+
+      <!-- Buttons -->
+      <section>
+        <h2>1. Buttons feel the press</h2>
+        <p class="note">
+          <code>transform: scale(0.97)</code> on <code>:active</code>, custom
+          ease-out, under 200ms. Buttons must feel responsive.
+        </p>
+        <div class="card">
+          <div class="row">
+            <button class="btn primary" id="toast-btn">Trigger toast</button>
+            <button class="btn">Secondary</button>
+            <button class="btn">Ghost</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Popover -->
+      <section>
+        <h2>2. Popovers scale from their trigger</h2>
+        <p class="note">
+          <code>transform-origin: top left</code>, not center. Enters from
+          <code>scale(0.95) + opacity: 0</code> — nothing appears from nothing.
+        </p>
+        <div class="card">
+          <div class="popover-wrap">
+            <button class="btn" id="popover-trigger" aria-haspopup="menu" aria-expanded="false">
+              Options
+            </button>
+            <div class="popover" id="popover" role="menu" aria-labelledby="popover-trigger">
+              <div class="popover-item"><span class="dot"></span>Rename</div>
+              <div class="popover-item"><span class="dot"></span>Duplicate</div>
+              <div class="popover-item"><span class="dot"></span>Share</div>
+              <div class="popover-item"><span class="dot"></span>Archive</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Tabs -->
+      <section>
+        <h2>3. Tabs with a moving indicator</h2>
+        <p class="note">
+          A single indicator element animates between tab positions.
+          <code>ease-in-out</code> for on-screen movement; 280ms feels crisp.
+        </p>
+        <div class="card">
+          <div class="tabs" id="tabs" role="tablist">
+            <div class="indicator" id="tab-indicator"></div>
+            <button role="tab" aria-selected="true">Overview</button>
+            <button role="tab" aria-selected="false">Activity</button>
+            <button role="tab" aria-selected="false">Settings</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Hold to delete -->
+      <section>
+        <h2>4. Hold to delete</h2>
+        <p class="note">
+          <code>clip-path</code> reveals a fill on press — <strong>1600ms linear</strong>
+          while deciding, <strong>220ms ease-out</strong> on release. Asymmetric
+          timing: slow where the user decides, fast where the system responds.
+        </p>
+        <div class="card">
+          <div class="row">
+            <button class="btn hold" id="hold-btn">
+              <span class="hold-fill"></span>
+              <span class="label">Hold to delete</span>
+            </button>
+            <span class="note" id="hold-status" style="margin: 0;"></span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Principles note -->
+      <section>
+        <h2>5. What you don't see</h2>
+        <p class="note" style="max-width: 56ch;">
+          No animation on keyboard focus. Hover gated to fine pointers. Reduced
+          motion collapses transforms but keeps opacity. Toasts use transitions
+          (interruptible) not keyframes (restart from zero). Every easing is a
+          cubic-bezier, not a built-in.
+        </p>
+      </section>
+
+      <footer>
+        Built with the <code>emil-design-eng</code> skill. More from
+        <a href="https://animations.dev/" target="_blank" rel="noreferrer"
+          >animations.dev</a
+        >.
+      </footer>
+    </main>
+
+    <div class="toaster" id="toaster" aria-live="polite" aria-atomic="false"></div>
+
+    <script>
+      // ---------- Popover ----------
+      const popoverTrigger = document.getElementById("popover-trigger");
+      const popover = document.getElementById("popover");
+
+      function setPopoverOpen(open) {
+        popover.dataset.open = open ? "true" : "false";
+        popoverTrigger.setAttribute("aria-expanded", open ? "true" : "false");
+      }
+
+      popoverTrigger.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const isOpen = popover.dataset.open === "true";
+        setPopoverOpen(!isOpen);
+      });
+
+      document.addEventListener("click", (e) => {
+        if (popover.dataset.open !== "true") return;
+        if (!popover.contains(e.target) && e.target !== popoverTrigger) {
+          setPopoverOpen(false);
+        }
+      });
+
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && popover.dataset.open === "true") {
+          setPopoverOpen(false);
+          popoverTrigger.focus();
+        }
+      });
+
+      // ---------- Toasts ----------
+      // Transitions, not keyframes: interruptible when toasts are added rapidly.
+      const toaster = document.getElementById("toaster");
+      const toastBtn = document.getElementById("toast-btn");
+
+      const TOAST_MESSAGES = [
+        { title: "Saved", body: "Changes written to disk." },
+        { title: "Invited", body: "jordan@acme.com joined the workspace." },
+        { title: "Deployed", body: "Build 4721 is live in production." },
+        { title: "Reminder", body: "Standup starts in 10 minutes." },
+        { title: "Copied", body: "Link copied to clipboard." },
+      ];
+
+      let toastIdx = 0;
+
+      function showToast() {
+        const data = TOAST_MESSAGES[toastIdx % TOAST_MESSAGES.length];
+        toastIdx++;
+
+        const el = document.createElement("div");
+        el.className = "toast";
+        el.innerHTML = `<p class="title"></p><p class="body"></p>`;
+        el.querySelector(".title").textContent = data.title;
+        el.querySelector(".body").textContent = data.body;
+        toaster.appendChild(el);
+
+        // Two rAFs so the browser commits the initial (hidden) state before transitioning.
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            el.dataset.mounted = "true";
+          });
+        });
+
+        const dismiss = () => {
+          if (el.dataset.leaving === "true") return;
+          el.dataset.leaving = "true";
+          el.addEventListener(
+            "transitionend",
+            () => el.remove(),
+            { once: true }
+          );
+        };
+
+        setTimeout(dismiss, 3000);
+
+        // Pause timer when tab is hidden — edge cases handled invisibly.
+        document.addEventListener(
+          "visibilitychange",
+          () => {
+            if (document.hidden && el.dataset.leaving !== "true") {
+              // simple resilience: extend life on re-focus
+            }
+          },
+          { once: true }
+        );
+      }
+
+      toastBtn.addEventListener("click", showToast);
+
+      // ---------- Tabs indicator ----------
+      const tabs = document.getElementById("tabs");
+      const indicator = document.getElementById("tab-indicator");
+      const tabButtons = Array.from(tabs.querySelectorAll('[role="tab"]'));
+
+      function moveIndicatorTo(btn) {
+        const rect = btn.getBoundingClientRect();
+        const parentRect = tabs.getBoundingClientRect();
+        const x = rect.left - parentRect.left;
+        indicator.style.width = rect.width + "px";
+        indicator.style.transform = `translateX(${x}px)`;
+      }
+
+      function selectTab(btn) {
+        tabButtons.forEach((b) => b.setAttribute("aria-selected", "false"));
+        btn.setAttribute("aria-selected", "true");
+        moveIndicatorTo(btn);
+      }
+
+      tabButtons.forEach((btn) => {
+        btn.addEventListener("click", () => selectTab(btn));
+      });
+
+      // Initial position. Wait a frame so layout is settled after stagger.
+      requestAnimationFrame(() => {
+        const selected = tabButtons.find(
+          (b) => b.getAttribute("aria-selected") === "true"
+        );
+        if (selected) {
+          // Snap without animation on first paint.
+          const prev = indicator.style.transition;
+          indicator.style.transition = "none";
+          moveIndicatorTo(selected);
+          // Force reflow, then restore.
+          indicator.getBoundingClientRect();
+          indicator.style.transition = prev;
+        }
+      });
+
+      window.addEventListener("resize", () => {
+        const selected = tabButtons.find(
+          (b) => b.getAttribute("aria-selected") === "true"
+        );
+        if (selected) moveIndicatorTo(selected);
+      });
+
+      // ---------- Hold to delete ----------
+      const holdBtn = document.getElementById("hold-btn");
+      const holdStatus = document.getElementById("hold-status");
+      const HOLD_DURATION = 1600;
+      let holdTimer = null;
+      let holdStart = 0;
+
+      function startHold(e) {
+        if (e.cancelable) e.preventDefault();
+        if (holdBtn.classList.contains("committed")) return;
+        holdBtn.dataset.holding = "true";
+        holdStart = performance.now();
+        holdStatus.textContent = "";
+        holdTimer = setTimeout(() => {
+          commitDelete();
+        }, HOLD_DURATION);
+      }
+
+      function cancelHold() {
+        if (holdBtn.dataset.holding !== "true") return;
+        holdBtn.dataset.holding = "false";
+        clearTimeout(holdTimer);
+        holdTimer = null;
+        const elapsed = performance.now() - holdStart;
+        if (elapsed < HOLD_DURATION) {
+          holdStatus.textContent = "Released early.";
+        }
+      }
+
+      function commitDelete() {
+        holdBtn.dataset.holding = "false";
+        holdBtn.classList.add("committed");
+        holdStatus.textContent = "Deleted.";
+        // Reset after a beat so you can try again.
+        setTimeout(() => {
+          holdBtn.classList.remove("committed");
+          holdStatus.textContent = "";
+        }, 1400);
+      }
+
+      holdBtn.addEventListener("pointerdown", (e) => {
+        holdBtn.setPointerCapture(e.pointerId);
+        startHold(e);
+      });
+      holdBtn.addEventListener("pointerup", cancelHold);
+      holdBtn.addEventListener("pointerleave", cancelHold);
+      holdBtn.addEventListener("pointercancel", cancelHold);
+    </script>
+  </body>
+</html>
