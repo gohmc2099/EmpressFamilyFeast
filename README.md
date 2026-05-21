@@ -1,6 +1,6 @@
 # Empress Family Feast – AI Agent System
 
-A Python-based multi-agent AI system powered by Anthropic Claude. Includes a conversational chatbot, a task automation agent, and a multi-agent orchestrator that routes tasks to the best-suited agent.
+A Python-based multi-agent AI system powered by Anthropic Claude. Includes a conversational chatbot, a task automation agent, a multi-agent orchestrator that routes tasks to the best-suited agent, and a customer referral programme.
 
 ## Features
 
@@ -9,7 +9,8 @@ A Python-based multi-agent AI system powered by Anthropic Claude. Includes a con
 - **ERIC Agent** – Escalating & Routing Intelligence Coordinator for delivery logistics
 - **Multi-Agent Orchestrator** – Routes requests to specialised agents and synthesises results
 - **Claude Vision** – AI-powered proof-of-delivery photo verification
-- **Persistent Database** – SQLite storage for all delivery data, incidents, and verifications
+- **Referral Programme** – Customer-to-customer referrals with shareable links, reward tracking, and a public landing page
+- **Persistent Database** – SQLite storage for all delivery data, incidents, verifications, and referrals
 - **Tool System** – Extensible tool registry with built-in, logistics, and vision tools
 
 ## Setup
@@ -139,6 +140,48 @@ Data can be stored in **Google Sheets** (recommended for team access) or **SQLit
 Your team can view and edit data directly in the Google Sheet.
 
 **SQLite fallback** — if Google Sheets is not configured, data is stored locally in `data/empress.db`. Run `python -m db.seed --reset` to reset to defaults.
+
+## Referral Programme
+
+The referral app lets existing Empress Family Feast customers refer friends in exchange for credit, while their friend gets a discount on their first order.
+
+### How it works
+
+1. Add a customer as a **referrer** in the dashboard (`/referrers/add`). They get a unique 8-character code and a shareable link like `https://your-domain/r/ABCD1234`.
+2. The referrer shares the link with friends.
+3. A friend visits the link, sees a friendly landing page, and signs up with their name + email/phone. The signup is saved as a `referral` with status `signed_up`.
+4. When the friend places their first order, ops marks the referral as **converted** in the dashboard. The referrer's credit balance automatically increases by the configured reward (default £10), and the referee's first-order discount (default £5) is applied.
+5. When the referrer's credit is paid out (e.g. applied to their next order), use **Mark credit as paid out** on their detail page to reset their balance.
+
+### Pages
+
+| Route | Audience | Purpose |
+|-------|----------|---------|
+| `/referrers` | Admin | List all referrers with credit balances and conversion counts |
+| `/referrers/add` | Admin | Add a new referrer (auto-generates a code) |
+| `/referrers/<code>` | Admin | Detail page — shareable link, referral list, payout button |
+| `/referrals` | Admin | All referrals with status filter and conversion controls |
+| `/r/<code>` | Public | Friendly landing page where friends sign up |
+
+### Reward configuration
+
+Defaults can be overridden via env vars:
+
+```bash
+REFERRER_REWARD=10        # credit awarded to the referrer on conversion
+REFEREE_REWARD=5          # discount given to the referee on first order
+REWARD_CURRENCY=GBP       # GBP / USD / EUR
+PUBLIC_BASE_URL=https://your-domain.com   # used to build absolute share links
+```
+
+### Data model
+
+Two new tables/sheets are created automatically:
+
+| Table / Sheet | Contents |
+|---------------|----------|
+| `Referrers` | Referrer profile, unique code, credit balance, joined date |
+| `Referrals` | Each referral event — referee details, status, rewards, signup/conversion timestamps |
 
 #### Google Sheets setup
 
