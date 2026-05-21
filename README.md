@@ -44,6 +44,10 @@ python dashboard/app.py
 
 Then open: `http://127.0.0.1:5000/referrals`
 
+For customer-facing referral signup links, share:
+
+`http://127.0.0.1:5000/refer/<REFERRAL_CODE>`
+
 ## Adding Custom Tools
 
 ```python

@@ -42,6 +42,10 @@ def _generate_referral_code(db, name: str) -> str:
     return f"EMP{datetime.datetime.now().strftime('%H%M%S')}"
 
 
+def _build_signup_link(referral_code: str) -> str:
+    return url_for("customer_referral_signup", referral_code=referral_code, _external=True)
+
+
 # -------------------------------------------------------------------------
 # Dashboard home
 # -------------------------------------------------------------------------
@@ -264,6 +268,8 @@ def referrals_dashboard():
     db = get_db()
     summary = db.get_referral_summary()
     referrers = db.get_all_referrers()
+    for referrer in referrers:
+        referrer["signup_link"] = _build_signup_link(referrer["referral_code"])
     referrals = db.get_all_referrals()
     return render_template(
         "referrals.html",
@@ -363,6 +369,65 @@ def update_referral_status(referral_id: int):
     db.update_referral_status(referral_id=referral_id, status=status, reward_amount=reward_amount)
     flash(f"Referral #{referral_id} updated to {status}.", "success")
     return redirect(url_for("referrals_dashboard"))
+
+
+@app.route("/refer/<referral_code>", methods=["GET", "POST"])
+def customer_referral_signup(referral_code: str):
+    db = get_db()
+    code = referral_code.strip().upper()
+    referrer = db.get_referrer_by_code(code)
+    if referrer is None:
+        return render_template("customer_referral_signup.html", referrer=None, referral_code=code), 404
+
+    if request.method == "POST":
+        referred_name = request.form.get("referred_name", "").strip()
+        referred_email = request.form.get("referred_email", "").strip().lower()
+        notes = request.form.get("notes", "").strip()
+
+        if not referred_name or not referred_email:
+            flash("Your name and email are required.", "error")
+            return render_template(
+                "customer_referral_signup.html",
+                referrer=referrer,
+                referral_code=code,
+                submitted=False,
+            )
+
+        try:
+            created = db.add_referral(
+                referral_code=code,
+                referred_name=referred_name,
+                referred_email=referred_email,
+                order_value=0.0,
+                notes=notes,
+            )
+        except Exception:
+            flash("This email is already registered with this referral code.", "error")
+            return render_template(
+                "customer_referral_signup.html",
+                referrer=referrer,
+                referral_code=code,
+                submitted=False,
+            )
+
+        if created is None:
+            flash("Referral code is no longer valid.", "error")
+            return render_template(
+                "customer_referral_signup.html",
+                referrer=referrer,
+                referral_code=code,
+                submitted=False,
+            )
+
+        return redirect(url_for("customer_referral_signup", referral_code=code, submitted="1"))
+
+    submitted = request.args.get("submitted", "") == "1"
+    return render_template(
+        "customer_referral_signup.html",
+        referrer=referrer,
+        referral_code=code,
+        submitted=submitted,
+    )
 
 
 # -------------------------------------------------------------------------

@@ -96,6 +96,7 @@
                 <th>Name</th>
                 <th>Email</th>
                 <th>Code</th>
+                <th>Signup Link</th>
                 <th>Total Referrals</th>
                 <th>Converted</th>
                 <th>Total Rewards</th>
@@ -107,13 +108,31 @@
                 <td>{{ referrer.name }}</td>
                 <td>{{ referrer.email }}</td>
                 <td><strong>{{ referrer.referral_code }}</strong></td>
+                <td>
+                    <div class="share-link-wrap">
+                        <input
+                            class="share-link-input"
+                            id="signup-link-{{ referrer.id }}"
+                            value="{{ referrer.signup_link }}"
+                            readonly
+                        >
+                        <button
+                            class="btn btn-sm copy-link-btn"
+                            type="button"
+                            data-target="signup-link-{{ referrer.id }}"
+                        >
+                            Copy
+                        </button>
+                        <a class="btn btn-sm" href="{{ referrer.signup_link }}" target="_blank" rel="noopener noreferrer">Open</a>
+                    </div>
+                </td>
                 <td>{{ referrer.total_referrals }}</td>
                 <td>{{ referrer.converted_referrals }}</td>
                 <td>£{{ "%.2f"|format(referrer.total_rewards or 0) }}</td>
             </tr>
             {% endfor %}
             {% if not referrers %}
-            <tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No referrers yet.</td></tr>
+            <tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No referrers yet.</td></tr>
             {% endif %}
         </tbody>
     </table>
@@ -177,4 +196,29 @@
         </tbody>
     </table>
 </div>
+
+<script>
+document.querySelectorAll(".copy-link-btn").forEach((button) => {
+    button.addEventListener("click", async () => {
+        const targetId = button.getAttribute("data-target");
+        const input = document.getElementById(targetId);
+        if (!input) return;
+        input.select();
+        input.setSelectionRange(0, 99999);
+        try {
+            await navigator.clipboard.writeText(input.value);
+            button.textContent = "Copied";
+            window.setTimeout(() => {
+                button.textContent = "Copy";
+            }, 1200);
+        } catch (err) {
+            document.execCommand("copy");
+            button.textContent = "Copied";
+            window.setTimeout(() => {
+                button.textContent = "Copy";
+            }, 1200);
+        }
+    });
+});
+</script>
 {% endblock %}

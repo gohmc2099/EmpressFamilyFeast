@@ -420,6 +420,65 @@ tbody tr:hover {
     font-size: 12px;
 }
 
+.share-link-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.share-link-input {
+    min-width: 240px;
+    padding: 6px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 12px;
+}
+
+/* Public referral signup page */
+.public-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.public-main {
+    width: 100%;
+    max-width: 560px;
+}
+
+.public-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+}
+
+.public-card h1 {
+    font-size: 28px;
+    color: var(--accent);
+    margin-bottom: 4px;
+}
+
+.public-card h2 {
+    font-size: 22px;
+    margin: 10px 0 8px;
+}
+
+.public-subtitle {
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.public-meta {
+    margin-top: 14px;
+    color: var(--text-muted);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .sidebar {

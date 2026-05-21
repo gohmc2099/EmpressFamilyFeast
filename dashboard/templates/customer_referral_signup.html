@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Referral Signup — Empress Family Feast</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="public-page">
+    <main class="public-main">
+        <section class="public-card">
+            <h1>Empress Family Feast</h1>
+            <p class="public-subtitle">Referral signup</p>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="flash flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            {% if not referrer %}
+            <h2>Invalid referral link</h2>
+            <p>This referral code is not valid anymore. Please request a fresh link.</p>
+            {% elif submitted %}
+            <h2>You're in!</h2>
+            <p>
+                Thanks for joining through <strong>{{ referrer.name }}</strong>'s referral link.
+                Our team will contact you soon.
+            </p>
+            <p class="public-meta">Referral code: <strong>{{ referral_code }}</strong></p>
+            {% else %}
+            <h2>Join with {{ referrer.name }}</h2>
+            <p>Fill this out to sign up using referral code <strong>{{ referral_code }}</strong>.</p>
+            <form method="post" action="{{ url_for('customer_referral_signup', referral_code=referral_code) }}">
+                <div class="form-group">
+                    <label for="public-name">Your name</label>
+                    <input id="public-name" name="referred_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="public-email">Your email</label>
+                    <input id="public-email" type="email" name="referred_email" required>
+                </div>
+                <div class="form-group">
+                    <label for="public-notes">Notes (optional)</label>
+                    <textarea id="public-notes" name="notes" rows="3" placeholder="Dietary preferences or best contact time"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Submit referral signup</button>
+            </form>
+            {% endif %}
+        </section>
+    </main>
+</body>
+</html>
