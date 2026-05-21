@@ -17,6 +17,8 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env"))
 
 import datetime
+import random
+import string
 from flask import Flask, render_template, request, redirect, url_for, flash
 
 from db import get_db
@@ -29,6 +31,15 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY", "empress-family-feast-dev-ke
 def _init_db():
     get_db()
     seed_database()
+
+
+def _generate_referral_code(db, name: str) -> str:
+    base = "".join(ch for ch in name.upper() if ch.isalnum())[:5] or "EMP"
+    for _ in range(25):
+        code = f"{base}{''.join(random.choices(string.digits, k=4))}"
+        if not db.referral_code_exists(code):
+            return code
+    return f"EMP{datetime.datetime.now().strftime('%H%M%S')}"
 
 
 # -------------------------------------------------------------------------
@@ -242,6 +253,116 @@ def logs():
     db = get_db()
     ops_messages = db.get_all_ops_messages()
     return render_template("logs.html", ops_messages=ops_messages)
+
+
+# -------------------------------------------------------------------------
+# Referrals
+# -------------------------------------------------------------------------
+
+@app.route("/referrals")
+def referrals_dashboard():
+    db = get_db()
+    summary = db.get_referral_summary()
+    referrers = db.get_all_referrers()
+    referrals = db.get_all_referrals()
+    return render_template(
+        "referrals.html",
+        summary=summary,
+        referrers=referrers,
+        referrals=referrals,
+    )
+
+
+@app.route("/referrals/referrers/add", methods=["POST"])
+def add_referrer():
+    db = get_db()
+    name = request.form.get("name", "").strip()
+    email = request.form.get("email", "").strip().lower()
+    phone = request.form.get("phone", "").strip()
+    if not name or not email:
+        flash("Referrer name and email are required.", "error")
+        return redirect(url_for("referrals_dashboard"))
+
+    code = request.form.get("referral_code", "").strip().upper()
+    if not code:
+        code = _generate_referral_code(db, name)
+
+    try:
+        db.add_referrer(name=name, email=email, phone=phone, referral_code=code)
+    except Exception:
+        flash("Could not add referrer. Email or referral code may already exist.", "error")
+        return redirect(url_for("referrals_dashboard"))
+
+    flash(f"Referrer '{name}' added with code {code}.", "success")
+    return redirect(url_for("referrals_dashboard"))
+
+
+@app.route("/referrals/add", methods=["POST"])
+def add_referral():
+    db = get_db()
+    referral_code = request.form.get("referral_code", "").strip().upper()
+    referred_name = request.form.get("referred_name", "").strip()
+    referred_email = request.form.get("referred_email", "").strip().lower()
+    notes = request.form.get("notes", "").strip()
+    order_value_raw = request.form.get("order_value", "0").strip()
+
+    if not referral_code or not referred_name or not referred_email:
+        flash("Referral code, referred name, and referred email are required.", "error")
+        return redirect(url_for("referrals_dashboard"))
+
+    try:
+        order_value = float(order_value_raw or 0)
+        if order_value < 0:
+            raise ValueError("Order value cannot be negative")
+    except ValueError:
+        flash("Order value must be a non-negative number.", "error")
+        return redirect(url_for("referrals_dashboard"))
+
+    try:
+        referral = db.add_referral(
+            referral_code=referral_code,
+            referred_name=referred_name,
+            referred_email=referred_email,
+            order_value=order_value,
+            notes=notes,
+        )
+    except Exception:
+        flash("Could not log referral. This referred email may already be attached to the code.", "error")
+        return redirect(url_for("referrals_dashboard"))
+
+    if referral is None:
+        flash("Referral code not found.", "error")
+        return redirect(url_for("referrals_dashboard"))
+
+    flash(f"Referral logged for {referred_name}.", "success")
+    return redirect(url_for("referrals_dashboard"))
+
+
+@app.route("/referrals/<int:referral_id>/status", methods=["POST"])
+def update_referral_status(referral_id: int):
+    db = get_db()
+    status = request.form.get("status", "pending").strip().lower()
+    reward_amount_raw = request.form.get("reward_amount", "0").strip()
+    valid_statuses = {"pending", "converted", "cancelled"}
+
+    if status not in valid_statuses:
+        flash("Invalid referral status.", "error")
+        return redirect(url_for("referrals_dashboard"))
+
+    try:
+        reward_amount = float(reward_amount_raw or 0)
+        if reward_amount < 0:
+            raise ValueError("Reward amount cannot be negative")
+    except ValueError:
+        flash("Reward amount must be a non-negative number.", "error")
+        return redirect(url_for("referrals_dashboard"))
+
+    if status != "converted":
+        reward_amount = 0
+
+    db.update_referral_status(referral_id=referral_id, status=status, reward_amount=reward_amount)
+    flash(f"Referral #{referral_id} updated to {status}.", "success")
+    return redirect(url_for("referrals_dashboard"))
 
 
 # -------------------------------------------------------------------------

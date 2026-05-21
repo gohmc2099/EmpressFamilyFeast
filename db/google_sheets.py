@@ -63,6 +63,8 @@ DELIVERIES_COLS = ["id", "driver", "customer", "address", "status", "photo_verif
 INCIDENTS_COLS = ["id", "type", "severity", "driver", "description", "logged_at", "resolved", "resolved_at"]
 OPS_COLS = ["id", "level", "subject", "body", "sent_at"]
 PHOTO_COLS = ["id", "delivery_id", "photo_path", "expected_address", "vision_result", "address_found", "match_result", "confidence", "details", "verified_at"]
+REFERRERS_COLS = ["id", "name", "email", "phone", "referral_code", "created_at"]
+REFERRALS_COLS = ["id", "referrer_id", "referred_name", "referred_email", "status", "order_value", "reward_amount", "notes", "created_at", "converted_at"]
 
 
 class GoogleSheetsDatabase:
@@ -98,6 +100,8 @@ class GoogleSheetsDatabase:
             "Incidents": INCIDENTS_COLS,
             "OpsMessages": OPS_COLS,
             "PhotoVerifications": PHOTO_COLS,
+            "Referrers": REFERRERS_COLS,
+            "Referrals": REFERRALS_COLS,
         }
         for title, cols in sheets_config.items():
             if title not in existing:
@@ -153,6 +157,13 @@ class GoogleSheetsDatabase:
 
     def _now(self) -> str:
         return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    def _next_numeric_id(self, sheet_name: str, id_field: str = "id") -> int:
+        records = self._get_all_records(sheet_name)
+        max_id = 0
+        for row in records:
+            max_id = max(max_id, self._safe_int(row.get(id_field), 0))
+        return max_id + 1
 
     # ------------------------------------------------------------------
     # Drivers
@@ -414,6 +425,161 @@ class GoogleSheetsDatabase:
     def get_verifications_for_delivery(self, delivery_id: str) -> list[dict]:
         records = self._get_all_records("PhotoVerifications")
         return [r for r in records if r.get("delivery_id") == delivery_id]
+
+    # ------------------------------------------------------------------
+    # Referrals
+    # ------------------------------------------------------------------
+
+    def referral_code_exists(self, referral_code: str) -> bool:
+        code = referral_code.upper()
+        return any(r.get("referral_code", "").upper() == code for r in self._get_all_records("Referrers"))
+
+    def add_referrer(self, name: str, email: str, phone: str, referral_code: str) -> dict:
+        new_id = self._next_numeric_id("Referrers")
+        created_at = self._now()
+        row = [new_id, name, email.lower(), phone, referral_code.upper(), created_at]
+        self._append_row("Referrers", row)
+        return {
+            "id": new_id,
+            "name": name,
+            "email": email.lower(),
+            "phone": phone,
+            "referral_code": referral_code.upper(),
+            "created_at": created_at,
+        }
+
+    def get_referrer_by_code(self, referral_code: str) -> dict | None:
+        code = referral_code.upper()
+        for row in self._get_all_records("Referrers"):
+            if row.get("referral_code", "").upper() == code:
+                row["id"] = self._safe_int(row.get("id"), 0)
+                return row
+        return None
+
+    def get_all_referrers(self) -> list[dict]:
+        referrers = self._get_all_records("Referrers")
+        referrals = self.get_all_referrals()
+        summary_by_referrer: dict[int, dict[str, float | int]] = {}
+        for referral in referrals:
+            referrer_id = self._safe_int(referral.get("referrer_id"), 0)
+            entry = summary_by_referrer.setdefault(
+                referrer_id,
+                {"total_referrals": 0, "converted_referrals": 0, "total_rewards": 0.0},
+            )
+            entry["total_referrals"] = int(entry["total_referrals"]) + 1
+            if referral.get("status") == "converted":
+                entry["converted_referrals"] = int(entry["converted_referrals"]) + 1
+            entry["total_rewards"] = float(entry["total_rewards"]) + float(referral.get("reward_amount", 0))
+
+        formatted: list[dict] = []
+        for row in referrers:
+            referrer_id = self._safe_int(row.get("id"), 0)
+            totals = summary_by_referrer.get(
+                referrer_id,
+                {"total_referrals": 0, "converted_referrals": 0, "total_rewards": 0.0},
+            )
+            formatted.append({
+                "id": referrer_id,
+                "name": row.get("name", ""),
+                "email": row.get("email", ""),
+                "phone": row.get("phone", ""),
+                "referral_code": row.get("referral_code", ""),
+                "created_at": row.get("created_at", ""),
+                "total_referrals": int(totals["total_referrals"]),
+                "converted_referrals": int(totals["converted_referrals"]),
+                "total_rewards": float(totals["total_rewards"]),
+            })
+        return sorted(formatted, key=lambda r: r.get("created_at", ""), reverse=True)
+
+    def add_referral(
+        self,
+        referral_code: str,
+        referred_name: str,
+        referred_email: str,
+        order_value: float = 0.0,
+        notes: str = "",
+    ) -> dict | None:
+        referrer = self.get_referrer_by_code(referral_code)
+        if referrer is None:
+            return None
+        new_id = self._next_numeric_id("Referrals")
+        created_at = self._now()
+        self._append_row(
+            "Referrals",
+            [
+                new_id,
+                referrer["id"],
+                referred_name,
+                referred_email.lower(),
+                "pending",
+                order_value,
+                0,
+                notes,
+                created_at,
+                "",
+            ],
+        )
+        return {
+            "id": new_id,
+            "referrer_id": referrer["id"],
+            "referrer_name": referrer["name"],
+            "referral_code": referrer["referral_code"],
+            "referred_name": referred_name,
+            "referred_email": referred_email.lower(),
+            "status": "pending",
+            "order_value": order_value,
+            "reward_amount": 0,
+            "notes": notes,
+            "created_at": created_at,
+            "converted_at": "",
+        }
+
+    def update_referral_status(self, referral_id: int, status: str, reward_amount: float = 0.0) -> None:
+        row = self._find_row("Referrals", 1, str(referral_id))
+        if row:
+            converted_at = self._now() if status == "converted" else ""
+            ws = self._ws("Referrals")
+            ws.update(f"E{row}", [[status]])
+            ws.update(f"G{row}", [[reward_amount]])
+            ws.update(f"J{row}", [[converted_at]])
+            self._invalidate_cache("Referrals")
+
+    def get_all_referrals(self) -> list[dict]:
+        referrals = self._get_all_records("Referrals")
+        referrers = {
+            self._safe_int(r.get("id"), 0): r
+            for r in self._get_all_records("Referrers")
+        }
+        result: list[dict] = []
+        for row in referrals:
+            referrer_id = self._safe_int(row.get("referrer_id"), 0)
+            referrer = referrers.get(referrer_id, {})
+            result.append({
+                "id": self._safe_int(row.get("id"), 0),
+                "referrer_id": referrer_id,
+                "referrer_name": referrer.get("name", ""),
+                "referral_code": referrer.get("referral_code", ""),
+                "referred_name": row.get("referred_name", ""),
+                "referred_email": row.get("referred_email", ""),
+                "status": row.get("status", "pending"),
+                "order_value": float(row.get("order_value") or 0),
+                "reward_amount": float(row.get("reward_amount") or 0),
+                "notes": row.get("notes", ""),
+                "created_at": row.get("created_at", ""),
+                "converted_at": row.get("converted_at", ""),
+            })
+        return sorted(result, key=lambda r: r.get("created_at", ""), reverse=True)
+
+    def get_referral_summary(self) -> dict:
+        referrers = self._get_all_records("Referrers")
+        referrals = self.get_all_referrals()
+        return {
+            "total_referrers": len(referrers),
+            "total_referrals": len(referrals),
+            "pending_referrals": sum(1 for r in referrals if r.get("status") == "pending"),
+            "converted_referrals": sum(1 for r in referrals if r.get("status") == "converted"),
+            "total_rewards": sum(float(r.get("reward_amount", 0)) for r in referrals),
+        }
 
     # ------------------------------------------------------------------
     # Lifecycle

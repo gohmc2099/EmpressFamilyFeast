@@ -391,6 +391,35 @@ tbody tr:hover {
     white-space: pre-wrap;
 }
 
+/* Referral page */
+.grid-2 {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.panel-form {
+    padding: 16px 20px 20px;
+}
+
+.row-form {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.row-form select,
+.row-form input {
+    min-width: 100px;
+    padding: 6px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 12px;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .sidebar {

@@ -105,6 +105,29 @@ class Database:
                 details         TEXT,
                 verified_at     TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS referrers (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                name            TEXT NOT NULL,
+                email           TEXT NOT NULL UNIQUE,
+                phone           TEXT NOT NULL DEFAULT '',
+                referral_code   TEXT NOT NULL UNIQUE,
+                created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS referrals (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                referrer_id     INTEGER NOT NULL REFERENCES referrers(id) ON DELETE CASCADE,
+                referred_name   TEXT NOT NULL,
+                referred_email  TEXT NOT NULL,
+                status          TEXT NOT NULL DEFAULT 'pending',
+                order_value     REAL NOT NULL DEFAULT 0,
+                reward_amount   REAL NOT NULL DEFAULT 0,
+                notes           TEXT NOT NULL DEFAULT '',
+                created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+                converted_at    TEXT,
+                UNIQUE(referrer_id, referred_email)
+            );
         """)
         # Migrate: add whatsapp_group column if missing (existing databases)
         cols = [r[1] for r in self.conn.execute("PRAGMA table_info(drivers)").fetchall()]
@@ -371,6 +394,121 @@ class Database:
             (delivery_id,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+    # ------------------------------------------------------------------
+    # Referrals
+    # ------------------------------------------------------------------
+
+    def referral_code_exists(self, referral_code: str) -> bool:
+        row = self.conn.execute(
+            "SELECT 1 FROM referrers WHERE referral_code = ?",
+            (referral_code,),
+        ).fetchone()
+        return row is not None
+
+    def add_referrer(self, name: str, email: str, phone: str, referral_code: str) -> dict:
+        self.conn.execute(
+            "INSERT INTO referrers (name, email, phone, referral_code) VALUES (?, ?, ?, ?)",
+            (name, email.lower(), phone, referral_code.upper()),
+        )
+        self.conn.commit()
+        row = self.conn.execute(
+            "SELECT * FROM referrers WHERE referral_code = ?",
+            (referral_code.upper(),),
+        ).fetchone()
+        return dict(row)
+
+    def get_referrer_by_code(self, referral_code: str) -> dict | None:
+        row = self.conn.execute(
+            "SELECT * FROM referrers WHERE referral_code = ?",
+            (referral_code.upper(),),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def get_all_referrers(self) -> list[dict]:
+        rows = self.conn.execute(
+            """
+            SELECT
+                r.*,
+                COUNT(f.id) AS total_referrals,
+                SUM(CASE WHEN f.status = 'converted' THEN 1 ELSE 0 END) AS converted_referrals,
+                COALESCE(SUM(f.reward_amount), 0) AS total_rewards
+            FROM referrers r
+            LEFT JOIN referrals f ON f.referrer_id = r.id
+            GROUP BY r.id
+            ORDER BY r.created_at DESC
+            """
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def add_referral(
+        self,
+        referral_code: str,
+        referred_name: str,
+        referred_email: str,
+        order_value: float = 0.0,
+        notes: str = "",
+    ) -> dict | None:
+        referrer = self.get_referrer_by_code(referral_code)
+        if referrer is None:
+            return None
+        cursor = self.conn.execute(
+            """
+            INSERT INTO referrals (referrer_id, referred_name, referred_email, order_value, notes)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (referrer["id"], referred_name, referred_email.lower(), order_value, notes),
+        )
+        self.conn.commit()
+        row = self.conn.execute(
+            """
+            SELECT f.*, r.name AS referrer_name, r.referral_code
+            FROM referrals f
+            JOIN referrers r ON r.id = f.referrer_id
+            WHERE f.id = ?
+            """,
+            (cursor.lastrowid,),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def update_referral_status(self, referral_id: int, status: str, reward_amount: float = 0.0) -> None:
+        converted_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") if status == "converted" else None
+        self.conn.execute(
+            "UPDATE referrals SET status = ?, reward_amount = ?, converted_at = ? WHERE id = ?",
+            (status, reward_amount, converted_at, referral_id),
+        )
+        self.conn.commit()
+
+    def get_all_referrals(self) -> list[dict]:
+        rows = self.conn.execute(
+            """
+            SELECT f.*, r.name AS referrer_name, r.referral_code
+            FROM referrals f
+            JOIN referrers r ON r.id = f.referrer_id
+            ORDER BY f.created_at DESC
+            """
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_referral_summary(self) -> dict:
+        total_referrers = self.conn.execute("SELECT COUNT(*) FROM referrers").fetchone()[0]
+        total_referrals = self.conn.execute("SELECT COUNT(*) FROM referrals").fetchone()[0]
+        pending_referrals = self.conn.execute(
+            "SELECT COUNT(*) FROM referrals WHERE status = 'pending'"
+        ).fetchone()[0]
+        converted_referrals = self.conn.execute(
+            "SELECT COUNT(*) FROM referrals WHERE status = 'converted'"
+        ).fetchone()[0]
+        total_rewards = self.conn.execute(
+            "SELECT COALESCE(SUM(reward_amount), 0) FROM referrals"
+        ).fetchone()[0]
+        return {
+            "total_referrers": total_referrers,
+            "total_referrals": total_referrals,
+            "pending_referrals": pending_referrals,
+            "converted_referrals": converted_referrals,
+            "total_rewards": total_rewards,
+        }
 
     # ------------------------------------------------------------------
     # Lifecycle

@@ -10,6 +10,7 @@ A Python-based multi-agent AI system powered by Anthropic Claude. Includes a con
 - **Multi-Agent Orchestrator** – Routes requests to specialised agents and synthesises results
 - **Claude Vision** – AI-powered proof-of-delivery photo verification
 - **Persistent Database** – SQLite storage for all delivery data, incidents, and verifications
+- **Referral App** – Ambassador signup, referral tracking, and reward management
 - **Tool System** – Extensible tool registry with built-in, logistics, and vision tools
 
 ## Setup
@@ -34,6 +35,14 @@ Select a mode:
 2. **Task Automation** – Execute structured tasks
 3. **ERIC** – Logistics operations agent (driver check-ins, delivery verification, escalation)
 4. **Orchestrator** – Multi-agent collaboration (includes all agents)
+
+### Web dashboard (including Referral App)
+
+```bash
+python dashboard/app.py
+```
+
+Then open: `http://127.0.0.1:5000/referrals`
 
 ## Adding Custom Tools
 
