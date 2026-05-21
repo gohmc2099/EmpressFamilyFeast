@@ -63,6 +63,8 @@ DELIVERIES_COLS = ["id", "driver", "customer", "address", "status", "photo_verif
 INCIDENTS_COLS = ["id", "type", "severity", "driver", "description", "logged_at", "resolved", "resolved_at"]
 OPS_COLS = ["id", "level", "subject", "body", "sent_at"]
 PHOTO_COLS = ["id", "delivery_id", "photo_path", "expected_address", "vision_result", "address_found", "match_result", "confidence", "details", "verified_at"]
+REFERRERS_COLS = ["code", "name", "email", "phone", "credit_balance", "joined_at", "notes"]
+REFERRALS_COLS = ["id", "referrer_code", "referee_name", "referee_email", "referee_phone", "status", "referrer_reward", "referee_reward", "referee_message", "signed_up_at", "converted_at", "created_at"]
 
 
 class GoogleSheetsDatabase:
@@ -98,6 +100,8 @@ class GoogleSheetsDatabase:
             "Incidents": INCIDENTS_COLS,
             "OpsMessages": OPS_COLS,
             "PhotoVerifications": PHOTO_COLS,
+            "Referrers": REFERRERS_COLS,
+            "Referrals": REFERRALS_COLS,
         }
         for title, cols in sheets_config.items():
             if title not in existing:
@@ -414,6 +418,164 @@ class GoogleSheetsDatabase:
     def get_verifications_for_delivery(self, delivery_id: str) -> list[dict]:
         records = self._get_all_records("PhotoVerifications")
         return [r for r in records if r.get("delivery_id") == delivery_id]
+
+    # ------------------------------------------------------------------
+    # Referrers
+    # ------------------------------------------------------------------
+
+    def _safe_float(self, value, default: float = 0.0) -> float:
+        if value == "" or value is None:
+            return default
+        try:
+            return float(value)
+        except (ValueError, TypeError):
+            return default
+
+    def get_all_referrers(self) -> list[dict]:
+        records = self._get_all_records("Referrers")
+        for r in records:
+            r["credit_balance"] = self._safe_float(r.get("credit_balance", 0))
+        return sorted(records, key=lambda r: r.get("joined_at", ""), reverse=True)
+
+    def get_referrer(self, code: str) -> dict | None:
+        for r in self.get_all_referrers():
+            if r.get("code") == code:
+                return r
+        return None
+
+    def referrer_code_exists(self, code: str) -> bool:
+        return self.get_referrer(code) is not None
+
+    def count_referrers(self) -> int:
+        return len(self.get_all_referrers())
+
+    def add_referrer(
+        self, code: str, name: str, email: str = "", phone: str = "",
+        notes: str = "",
+    ) -> dict:
+        joined_at = self._now()
+        self._append_row("Referrers", [code, name, email, phone, 0, joined_at, notes])
+        return self.get_referrer(code)
+
+    def update_referrer(
+        self, code: str, name: str, email: str = "", phone: str = "",
+        notes: str = "",
+    ) -> None:
+        row = self._find_row("Referrers", 1, code)
+        if row:
+            ws = self._ws("Referrers")
+            ws.update(f"B{row}", [[name]])
+            ws.update(f"C{row}:D{row}", [[email, phone]])
+            ws.update(f"G{row}", [[notes]])
+            self._invalidate_cache("Referrers")
+
+    def delete_referrer(self, code: str) -> None:
+        row = self._find_row("Referrers", 1, code)
+        if row:
+            self._ws("Referrers").delete_rows(row)
+            self._invalidate_cache("Referrers")
+        self._delete_rows_by_col("Referrals", 2, code)
+        self._invalidate_cache("Referrals")
+
+    def add_referrer_credit(self, code: str, amount: float) -> None:
+        row = self._find_row("Referrers", 1, code)
+        if not row:
+            return
+        ws = self._ws("Referrers")
+        current = self._safe_float(ws.cell(row, 5).value, 0.0)
+        ws.update(f"E{row}", [[current + float(amount)]])
+        self._invalidate_cache("Referrers")
+
+    def reset_referrer_credit(self, code: str) -> None:
+        row = self._find_row("Referrers", 1, code)
+        if row:
+            self._ws("Referrers").update(f"E{row}", [[0]])
+            self._invalidate_cache("Referrers")
+
+    # ------------------------------------------------------------------
+    # Referrals
+    # ------------------------------------------------------------------
+
+    def _next_referral_id(self) -> int:
+        records = self._get_all_records("Referrals")
+        max_id = 0
+        for r in records:
+            max_id = max(max_id, self._safe_int(r.get("id", 0)))
+        return max_id + 1
+
+    def add_referral(
+        self, referrer_code: str, referee_name: str, referee_email: str = "",
+        referee_phone: str = "", referee_message: str = "",
+        status: str = "signed_up", referrer_reward: float = 0,
+        referee_reward: float = 0,
+    ) -> dict:
+        now = self._now()
+        signed_up_at = now if status in ("signed_up", "converted") else ""
+        converted_at = now if status == "converted" else ""
+        new_id = self._next_referral_id()
+        self._append_row("Referrals", [
+            new_id, referrer_code, referee_name, referee_email, referee_phone,
+            status, referrer_reward, referee_reward, referee_message,
+            signed_up_at, converted_at, now,
+        ])
+        return {
+            "id": new_id, "referrer_code": referrer_code,
+            "referee_name": referee_name, "referee_email": referee_email,
+            "referee_phone": referee_phone, "status": status,
+            "referrer_reward": referrer_reward, "referee_reward": referee_reward,
+            "referee_message": referee_message,
+            "signed_up_at": signed_up_at, "converted_at": converted_at,
+            "created_at": now,
+        }
+
+    def get_referral(self, referral_id: int) -> dict | None:
+        for r in self._get_all_records("Referrals"):
+            if self._safe_int(r.get("id", 0)) == int(referral_id):
+                return r
+        return None
+
+    def get_all_referrals(self) -> list[dict]:
+        records = self._get_all_records("Referrals")
+        return sorted(records, key=lambda r: r.get("created_at", ""), reverse=True)
+
+    def get_referrals_by_referrer(self, code: str) -> list[dict]:
+        return [r for r in self.get_all_referrals() if r.get("referrer_code") == code]
+
+    def update_referral_status(self, referral_id: int, status: str) -> None:
+        row = self._find_row("Referrals", 1, str(referral_id))
+        if not row:
+            return
+        ws = self._ws("Referrals")
+        now = self._now()
+        signed_up_at = ws.cell(row, 10).value or ""
+        converted_at = ws.cell(row, 11).value or ""
+        if status in ("signed_up", "converted") and not signed_up_at:
+            signed_up_at = now
+        if status == "converted" and not converted_at:
+            converted_at = now
+        ws.update(f"F{row}", [[status]])
+        ws.update(f"J{row}:K{row}", [[signed_up_at, converted_at]])
+        self._invalidate_cache("Referrals")
+
+    def delete_referral(self, referral_id: int) -> None:
+        row = self._find_row("Referrals", 1, str(referral_id))
+        if row:
+            self._ws("Referrals").delete_rows(row)
+            self._invalidate_cache("Referrals")
+
+    def get_referral_summary(self) -> dict:
+        referrals = self.get_all_referrals()
+        referrers = self.get_all_referrers()
+        return {
+            "total": len(referrals),
+            "signed_up": sum(1 for r in referrals if r.get("status") == "signed_up"),
+            "converted": sum(1 for r in referrals if r.get("status") == "converted"),
+            "pending": sum(1 for r in referrals if r.get("status") == "pending"),
+            "outstanding_credit": sum(self._safe_float(r.get("credit_balance", 0)) for r in referrers),
+        }
+
+    def count_referrals(self) -> int:
+        return len(self.get_all_referrals())
 
     # ------------------------------------------------------------------
     # Lifecycle

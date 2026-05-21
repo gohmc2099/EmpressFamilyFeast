@@ -105,6 +105,31 @@ class Database:
                 details         TEXT,
                 verified_at     TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS referrers (
+                code            TEXT PRIMARY KEY,
+                name            TEXT NOT NULL,
+                email           TEXT NOT NULL DEFAULT '',
+                phone           TEXT NOT NULL DEFAULT '',
+                credit_balance  REAL NOT NULL DEFAULT 0,
+                joined_at       TEXT NOT NULL DEFAULT (datetime('now')),
+                notes           TEXT NOT NULL DEFAULT ''
+            );
+
+            CREATE TABLE IF NOT EXISTS referrals (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                referrer_code   TEXT NOT NULL REFERENCES referrers(code) ON DELETE CASCADE,
+                referee_name    TEXT NOT NULL,
+                referee_email   TEXT NOT NULL DEFAULT '',
+                referee_phone   TEXT NOT NULL DEFAULT '',
+                status          TEXT NOT NULL DEFAULT 'pending',
+                referrer_reward REAL NOT NULL DEFAULT 0,
+                referee_reward  REAL NOT NULL DEFAULT 0,
+                referee_message TEXT NOT NULL DEFAULT '',
+                signed_up_at    TEXT,
+                converted_at    TEXT,
+                created_at      TEXT NOT NULL DEFAULT (datetime('now'))
+            );
         """)
         # Migrate: add whatsapp_group column if missing (existing databases)
         cols = [r[1] for r in self.conn.execute("PRAGMA table_info(drivers)").fetchall()]
@@ -371,6 +396,164 @@ class Database:
             (delivery_id,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+    # ------------------------------------------------------------------
+    # Referrers
+    # ------------------------------------------------------------------
+
+    def get_all_referrers(self) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT * FROM referrers ORDER BY joined_at DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_referrer(self, code: str) -> dict | None:
+        row = self.conn.execute(
+            "SELECT * FROM referrers WHERE code = ?", (code,)
+        ).fetchone()
+        return dict(row) if row else None
+
+    def referrer_code_exists(self, code: str) -> bool:
+        row = self.conn.execute(
+            "SELECT 1 FROM referrers WHERE code = ?", (code,)
+        ).fetchone()
+        return row is not None
+
+    def add_referrer(
+        self, code: str, name: str, email: str = "", phone: str = "",
+        notes: str = "",
+    ) -> dict:
+        joined_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.conn.execute(
+            "INSERT INTO referrers (code, name, email, phone, credit_balance, joined_at, notes) "
+            "VALUES (?, ?, ?, ?, 0, ?, ?)",
+            (code, name, email, phone, joined_at, notes),
+        )
+        self.conn.commit()
+        return self.get_referrer(code)
+
+    def update_referrer(
+        self, code: str, name: str, email: str = "", phone: str = "",
+        notes: str = "",
+    ) -> None:
+        self.conn.execute(
+            "UPDATE referrers SET name = ?, email = ?, phone = ?, notes = ? WHERE code = ?",
+            (name, email, phone, notes, code),
+        )
+        self.conn.commit()
+
+    def delete_referrer(self, code: str) -> None:
+        self.conn.execute("DELETE FROM referrals WHERE referrer_code = ?", (code,))
+        self.conn.execute("DELETE FROM referrers WHERE code = ?", (code,))
+        self.conn.commit()
+
+    def add_referrer_credit(self, code: str, amount: float) -> None:
+        self.conn.execute(
+            "UPDATE referrers SET credit_balance = credit_balance + ? WHERE code = ?",
+            (amount, code),
+        )
+        self.conn.commit()
+
+    def reset_referrer_credit(self, code: str) -> None:
+        self.conn.execute(
+            "UPDATE referrers SET credit_balance = 0 WHERE code = ?", (code,)
+        )
+        self.conn.commit()
+
+    def count_referrers(self) -> int:
+        return self.conn.execute("SELECT COUNT(*) FROM referrers").fetchone()[0]
+
+    # ------------------------------------------------------------------
+    # Referrals
+    # ------------------------------------------------------------------
+
+    def add_referral(
+        self, referrer_code: str, referee_name: str, referee_email: str = "",
+        referee_phone: str = "", referee_message: str = "",
+        status: str = "signed_up", referrer_reward: float = 0,
+        referee_reward: float = 0,
+    ) -> dict:
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        signed_up_at = now if status in ("signed_up", "converted") else None
+        converted_at = now if status == "converted" else None
+        cursor = self.conn.execute(
+            "INSERT INTO referrals (referrer_code, referee_name, referee_email, "
+            "referee_phone, status, referrer_reward, referee_reward, "
+            "referee_message, signed_up_at, converted_at, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (referrer_code, referee_name, referee_email, referee_phone,
+             status, referrer_reward, referee_reward, referee_message,
+             signed_up_at, converted_at, now),
+        )
+        self.conn.commit()
+        return self.get_referral(cursor.lastrowid)
+
+    def get_referral(self, referral_id: int) -> dict | None:
+        row = self.conn.execute(
+            "SELECT * FROM referrals WHERE id = ?", (referral_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+    def get_all_referrals(self) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT * FROM referrals ORDER BY created_at DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_referrals_by_referrer(self, code: str) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT * FROM referrals WHERE referrer_code = ? ORDER BY created_at DESC",
+            (code,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def update_referral_status(
+        self, referral_id: int, status: str,
+    ) -> None:
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        ref = self.get_referral(referral_id)
+        if not ref:
+            return
+        signed_up_at = ref["signed_up_at"]
+        converted_at = ref["converted_at"]
+        if status in ("signed_up", "converted") and not signed_up_at:
+            signed_up_at = now
+        if status == "converted" and not converted_at:
+            converted_at = now
+        self.conn.execute(
+            "UPDATE referrals SET status = ?, signed_up_at = ?, converted_at = ? WHERE id = ?",
+            (status, signed_up_at, converted_at, referral_id),
+        )
+        self.conn.commit()
+
+    def delete_referral(self, referral_id: int) -> None:
+        self.conn.execute("DELETE FROM referrals WHERE id = ?", (referral_id,))
+        self.conn.commit()
+
+    def get_referral_summary(self) -> dict:
+        total = self.conn.execute("SELECT COUNT(*) FROM referrals").fetchone()[0]
+        signed_up = self.conn.execute(
+            "SELECT COUNT(*) FROM referrals WHERE status = 'signed_up'"
+        ).fetchone()[0]
+        converted = self.conn.execute(
+            "SELECT COUNT(*) FROM referrals WHERE status = 'converted'"
+        ).fetchone()[0]
+        pending = self.conn.execute(
+            "SELECT COUNT(*) FROM referrals WHERE status = 'pending'"
+        ).fetchone()[0]
+        total_credit = self.conn.execute(
+            "SELECT COALESCE(SUM(credit_balance), 0) FROM referrers"
+        ).fetchone()[0]
+        return {
+            "total": total,
+            "signed_up": signed_up,
+            "converted": converted,
+            "pending": pending,
+            "outstanding_credit": float(total_credit or 0),
+        }
+
+    def count_referrals(self) -> int:
+        return self.conn.execute("SELECT COUNT(*) FROM referrals").fetchone()[0]
 
     # ------------------------------------------------------------------
     # Lifecycle
