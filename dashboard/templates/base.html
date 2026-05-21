@@ -32,6 +32,13 @@
             <a href="{{ url_for('logs') }}" class="{% if request.endpoint == 'logs' %}active{% endif %}">
                 $ ERIC Logs
             </a>
+            <div class="sidebar-section">Referrals</div>
+            <a href="{{ url_for('referrals.referrers_list') }}" class="{% if request.endpoint and request.endpoint.startswith('referrals.referrer') %}active{% endif %}">
+                * Referrers
+            </a>
+            <a href="{{ url_for('referrals.referrals_list') }}" class="{% if request.endpoint == 'referrals.referrals_list' %}active{% endif %}">
+                + Referrals
+            </a>
         </nav>
     </aside>
 

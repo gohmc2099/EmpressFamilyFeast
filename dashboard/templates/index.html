@@ -43,6 +43,25 @@
     </div>
 </div>
 
+<div class="cards">
+    <div class="card">
+        <div class="card-label">Total Referrals</div>
+        <div class="card-value blue">{{ referral_summary.total }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Signed Up</div>
+        <div class="card-value yellow">{{ referral_summary.signed_up }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Converted</div>
+        <div class="card-value green">{{ referral_summary.converted }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Outstanding Credit</div>
+        <div class="card-value">{{ currency_symbol }}{{ '%.2f'|format(referral_summary.outstanding_credit) }}</div>
+    </div>
+</div>
+
 {% if open_incidents %}
 <div class="table-wrap">
     <div class="table-header">

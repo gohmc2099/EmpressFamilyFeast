@@ -21,9 +21,11 @@ from flask import Flask, render_template, request, redirect, url_for, flash
 
 from db import get_db
 from db.seed import seed_database
+from dashboard.referrals import bp as referrals_bp
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "empress-family-feast-dev-key")
+app.register_blueprint(referrals_bp)
 
 
 def _init_db():
@@ -51,6 +53,8 @@ def index():
         if schedule.get(today, False):
             active_today.append(d["name"])
 
+    referral_summary = db.get_referral_summary()
+
     return render_template(
         "index.html",
         summary=summary,
@@ -59,6 +63,7 @@ def index():
         open_incidents=open_incidents,
         recent_ops=recent_ops,
         today=today,
+        referral_summary=referral_summary,
     )
 
 
