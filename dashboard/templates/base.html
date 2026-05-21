@@ -26,6 +26,9 @@
             <a href="{{ url_for('deliveries_list') }}" class="{% if request.endpoint == 'deliveries_list' %}active{% endif %}">
                 > Deliveries
             </a>
+            <a href="{{ url_for('referrals_list') }}" class="{% if request.endpoint in ('referrals_list', 'referral_detail') %}active{% endif %}">
+                + Referrals
+            </a>
             <a href="{{ url_for('incidents_list') }}" class="{% if request.endpoint == 'incidents_list' %}active{% endif %}">
                 ! Incidents
             </a>

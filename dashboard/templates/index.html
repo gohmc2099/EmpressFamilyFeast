@@ -43,6 +43,27 @@
     </div>
 </div>
 
+<div class="cards">
+    <div class="card">
+        <div class="card-label">Referral Pipeline</div>
+        <div class="card-value blue">{{ referral_summary.total }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">New Referrals</div>
+        <div class="card-value yellow">{{ referral_summary.new }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Enrolled Families</div>
+        <div class="card-value green">{{ referral_summary.enrolled }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Public Referral Form</div>
+        <div class="card-value" style="font-size: 16px;">
+            <a href="{{ url_for('referral_public') }}" class="btn btn-sm">Open Form</a>
+        </div>
+    </div>
+</div>
+
 {% if open_incidents %}
 <div class="table-wrap">
     <div class="table-header">

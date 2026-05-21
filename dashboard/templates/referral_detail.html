@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Referral {{ referral.id }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Referral {{ referral.id }}</h2>
+    <p>Submitted {{ referral.created_at }} by {{ referral.referrer_name }}</p>
+</div>
+
+<div style="margin-bottom: 20px;">
+    <a href="{{ url_for('referrals_list') }}" class="btn btn-sm">Back to Referrals</a>
+</div>
+
+<div class="detail-grid">
+    <div class="card">
+        <div class="table-header compact-header">
+            <h3>Family</h3>
+            <span class="badge {{ referral.badge_class }}">{{ referral.status_label }}</span>
+        </div>
+        <dl class="detail-list">
+            <dt>Family name</dt>
+            <dd>{{ referral.family_name }}</dd>
+            <dt>Primary contact</dt>
+            <dd>{{ referral.contact_name or '—' }}</dd>
+            <dt>Phone</dt>
+            <dd>{{ referral.contact_phone }}</dd>
+            <dt>Email</dt>
+            <dd>{{ referral.contact_email or '—' }}</dd>
+            <dt>Preferred contact</dt>
+            <dd>{{ referral.preferred_contact|title }}</dd>
+            <dt>Household size</dt>
+            <dd>{{ referral.household_size }}</dd>
+            <dt>Address</dt>
+            <dd>{{ referral.address }}{% if referral.postcode %}<br>{{ referral.postcode }}{% endif %}</dd>
+        </dl>
+    </div>
+
+    <div class="card">
+        <div class="table-header compact-header">
+            <h3>Referral source</h3>
+        </div>
+        <dl class="detail-list">
+            <dt>Referrer</dt>
+            <dd>{{ referral.referrer_name }}</dd>
+            <dt>Phone</dt>
+            <dd>{{ referral.referrer_phone }}</dd>
+            <dt>Email</dt>
+            <dd>{{ referral.referrer_email or '—' }}</dd>
+            <dt>Consent</dt>
+            <dd>
+                {% if referral.consent %}
+                <span class="badge badge-green">Confirmed</span>
+                {% else %}
+                <span class="badge badge-red">Missing</span>
+                {% endif %}
+            </dd>
+        </dl>
+    </div>
+</div>
+
+<div class="detail-grid">
+    <div class="card">
+        <div class="table-header compact-header">
+            <h3>Support needs</h3>
+        </div>
+        <dl class="detail-list">
+            <dt>Dietary needs</dt>
+            <dd>{{ referral.dietary_needs or '—' }}</dd>
+            <dt>Referral reason</dt>
+            <dd>{{ referral.reason or '—' }}</dd>
+        </dl>
+    </div>
+
+    <div class="card">
+        <div class="table-header compact-header">
+            <h3>Update referral</h3>
+        </div>
+        <form method="POST">
+            <div class="form-group">
+                <label for="status">Status</label>
+                <select id="status" name="status">
+                    {% for value, label in statuses %}
+                    <option value="{{ value }}" {% if referral.status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="notes">Internal notes</label>
+                <textarea id="notes" name="notes" rows="6"
+                          placeholder="Call attempts, eligibility decisions, delivery notes...">{{ referral.notes }}</textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Save Update</button>
+        </form>
+        {% if referral.updated_at %}
+        <p style="color: var(--text-muted); font-size: 13px; margin-top: 12px;">Last updated {{ referral.updated_at }}</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

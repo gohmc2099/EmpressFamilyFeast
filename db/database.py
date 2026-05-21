@@ -105,6 +105,28 @@ class Database:
                 details         TEXT,
                 verified_at     TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS referrals (
+                id                  TEXT PRIMARY KEY,
+                referrer_name       TEXT NOT NULL,
+                referrer_phone      TEXT NOT NULL,
+                referrer_email      TEXT NOT NULL DEFAULT '',
+                family_name         TEXT NOT NULL,
+                contact_name        TEXT NOT NULL DEFAULT '',
+                contact_phone       TEXT NOT NULL,
+                contact_email       TEXT NOT NULL DEFAULT '',
+                address             TEXT NOT NULL,
+                postcode            TEXT NOT NULL DEFAULT '',
+                household_size      INTEGER NOT NULL DEFAULT 1,
+                preferred_contact   TEXT NOT NULL DEFAULT 'phone',
+                dietary_needs       TEXT NOT NULL DEFAULT '',
+                reason              TEXT NOT NULL DEFAULT '',
+                status              TEXT NOT NULL DEFAULT 'new',
+                consent             INTEGER NOT NULL DEFAULT 0,
+                notes               TEXT NOT NULL DEFAULT '',
+                created_at          TEXT NOT NULL,
+                updated_at          TEXT NOT NULL
+            );
         """)
         # Migrate: add whatsapp_group column if missing (existing databases)
         cols = [r[1] for r in self.conn.execute("PRAGMA table_info(drivers)").fetchall()]
@@ -371,6 +393,99 @@ class Database:
             (delivery_id,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+    # ------------------------------------------------------------------
+    # Referrals
+    # ------------------------------------------------------------------
+
+    def add_referral(
+        self,
+        referral_id: str,
+        referrer_name: str,
+        referrer_phone: str,
+        referrer_email: str,
+        family_name: str,
+        contact_name: str,
+        contact_phone: str,
+        contact_email: str,
+        address: str,
+        postcode: str,
+        household_size: int,
+        preferred_contact: str,
+        dietary_needs: str,
+        reason: str,
+        consent: bool,
+        created_at: str,
+    ) -> dict:
+        self.conn.execute(
+            "INSERT INTO referrals "
+            "(id, referrer_name, referrer_phone, referrer_email, family_name, "
+            "contact_name, contact_phone, contact_email, address, postcode, "
+            "household_size, preferred_contact, dietary_needs, reason, status, "
+            "consent, notes, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, '', ?, ?)",
+            (
+                referral_id,
+                referrer_name,
+                referrer_phone,
+                referrer_email,
+                family_name,
+                contact_name,
+                contact_phone,
+                contact_email,
+                address,
+                postcode,
+                household_size,
+                preferred_contact,
+                dietary_needs,
+                reason,
+                int(consent),
+                created_at,
+                created_at,
+            ),
+        )
+        self.conn.commit()
+        return self.get_referral(referral_id)
+
+    def get_all_referrals(self) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT * FROM referrals ORDER BY created_at DESC"
+        ).fetchall()
+        referrals = [dict(r) for r in rows]
+        for referral in referrals:
+            referral["consent"] = bool(referral["consent"])
+        return referrals
+
+    def get_referral(self, referral_id: str) -> dict | None:
+        row = self.conn.execute(
+            "SELECT * FROM referrals WHERE id = ?", (referral_id,)
+        ).fetchone()
+        if row is None:
+            return None
+        referral = dict(row)
+        referral["consent"] = bool(referral["consent"])
+        return referral
+
+    def update_referral_status(
+        self, referral_id: str, status: str, notes: str, updated_at: str
+    ) -> None:
+        self.conn.execute(
+            "UPDATE referrals SET status = ?, notes = ?, updated_at = ? WHERE id = ?",
+            (status, notes, updated_at, referral_id),
+        )
+        self.conn.commit()
+
+    def get_referral_summary(self) -> dict:
+        referrals = self.get_all_referrals()
+        return {
+            "total": len(referrals),
+            "new": sum(1 for r in referrals if r["status"] == "new"),
+            "contacted": sum(1 for r in referrals if r["status"] == "contacted"),
+            "eligible": sum(1 for r in referrals if r["status"] == "eligible"),
+            "scheduled": sum(1 for r in referrals if r["status"] == "scheduled"),
+            "enrolled": sum(1 for r in referrals if r["status"] == "enrolled"),
+            "declined": sum(1 for r in referrals if r["status"] == "declined"),
+        }
 
     # ------------------------------------------------------------------
     # Lifecycle

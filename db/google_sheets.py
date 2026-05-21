@@ -20,6 +20,7 @@ The spreadsheet will have these tabs (auto-created if missing):
   - Incidents
   - OpsMessages
   - PhotoVerifications
+  - Referrals
 """
 
 from __future__ import annotations
@@ -63,6 +64,12 @@ DELIVERIES_COLS = ["id", "driver", "customer", "address", "status", "photo_verif
 INCIDENTS_COLS = ["id", "type", "severity", "driver", "description", "logged_at", "resolved", "resolved_at"]
 OPS_COLS = ["id", "level", "subject", "body", "sent_at"]
 PHOTO_COLS = ["id", "delivery_id", "photo_path", "expected_address", "vision_result", "address_found", "match_result", "confidence", "details", "verified_at"]
+REFERRAL_COLS = [
+    "id", "referrer_name", "referrer_phone", "referrer_email", "family_name",
+    "contact_name", "contact_phone", "contact_email", "address", "postcode",
+    "household_size", "preferred_contact", "dietary_needs", "reason", "status",
+    "consent", "notes", "created_at", "updated_at",
+]
 
 
 class GoogleSheetsDatabase:
@@ -98,6 +105,7 @@ class GoogleSheetsDatabase:
             "Incidents": INCIDENTS_COLS,
             "OpsMessages": OPS_COLS,
             "PhotoVerifications": PHOTO_COLS,
+            "Referrals": REFERRAL_COLS,
         }
         for title, cols in sheets_config.items():
             if title not in existing:
@@ -414,6 +422,88 @@ class GoogleSheetsDatabase:
     def get_verifications_for_delivery(self, delivery_id: str) -> list[dict]:
         records = self._get_all_records("PhotoVerifications")
         return [r for r in records if r.get("delivery_id") == delivery_id]
+
+    # ------------------------------------------------------------------
+    # Referrals
+    # ------------------------------------------------------------------
+
+    def add_referral(
+        self,
+        referral_id: str,
+        referrer_name: str,
+        referrer_phone: str,
+        referrer_email: str,
+        family_name: str,
+        contact_name: str,
+        contact_phone: str,
+        contact_email: str,
+        address: str,
+        postcode: str,
+        household_size: int,
+        preferred_contact: str,
+        dietary_needs: str,
+        reason: str,
+        consent: bool,
+        created_at: str,
+    ) -> dict:
+        self._append_row("Referrals", [
+            referral_id,
+            referrer_name,
+            referrer_phone,
+            referrer_email,
+            family_name,
+            contact_name,
+            contact_phone,
+            contact_email,
+            address,
+            postcode,
+            household_size,
+            preferred_contact,
+            dietary_needs,
+            reason,
+            "new",
+            int(consent),
+            "",
+            created_at,
+            created_at,
+        ])
+        return self.get_referral(referral_id)
+
+    def get_all_referrals(self) -> list[dict]:
+        records = self._get_all_records("Referrals")
+        for r in records:
+            r["household_size"] = self._safe_int(r.get("household_size", 1), 1)
+            r["consent"] = bool(self._safe_int(r.get("consent", 0)))
+        return sorted(records, key=lambda r: r.get("created_at", ""), reverse=True)
+
+    def get_referral(self, referral_id: str) -> dict | None:
+        for referral in self.get_all_referrals():
+            if str(referral.get("id")) == str(referral_id):
+                return referral
+        return None
+
+    def update_referral_status(
+        self, referral_id: str, status: str, notes: str, updated_at: str
+    ) -> None:
+        row = self._find_row("Referrals", 1, referral_id)
+        if row:
+            ws = self._ws("Referrals")
+            ws.update(f"O{row}", [[status]])
+            ws.update(f"Q{row}", [[notes]])
+            ws.update(f"S{row}", [[updated_at]])
+            self._invalidate_cache("Referrals")
+
+    def get_referral_summary(self) -> dict:
+        referrals = self.get_all_referrals()
+        return {
+            "total": len(referrals),
+            "new": sum(1 for r in referrals if r.get("status") == "new"),
+            "contacted": sum(1 for r in referrals if r.get("status") == "contacted"),
+            "eligible": sum(1 for r in referrals if r.get("status") == "eligible"),
+            "scheduled": sum(1 for r in referrals if r.get("status") == "scheduled"),
+            "enrolled": sum(1 for r in referrals if r.get("status") == "enrolled"),
+            "declined": sum(1 for r in referrals if r.get("status") == "declined"),
+        }
 
     # ------------------------------------------------------------------
     # Lifecycle

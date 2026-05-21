@@ -7,6 +7,7 @@ and ERIC's operational logs.
 from __future__ import annotations
 
 import os
+import secrets
 import sys
 
 # Ensure project root is on the path so imports work
@@ -25,10 +26,96 @@ from db.seed import seed_database
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "empress-family-feast-dev-key")
 
+REFERRAL_STATUSES = [
+    ("new", "New"),
+    ("contacted", "Contacted"),
+    ("eligible", "Eligible"),
+    ("scheduled", "Scheduled"),
+    ("enrolled", "Enrolled"),
+    ("declined", "Declined"),
+]
+REFERRAL_STATUS_LABELS = dict(REFERRAL_STATUSES)
+REFERRAL_STATUS_BADGES = {
+    "new": "badge-yellow",
+    "contacted": "badge-blue",
+    "eligible": "badge-green",
+    "scheduled": "badge-blue",
+    "enrolled": "badge-green",
+    "declined": "badge-red",
+}
+
 
 def _init_db():
     get_db()
     seed_database()
+
+
+def _now() -> str:
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _new_referral_id(db) -> str:
+    today = datetime.datetime.now().strftime("%Y%m%d")
+    for _ in range(10):
+        referral_id = f"REF-{today}-{secrets.token_hex(2).upper()}"
+        if db.get_referral(referral_id) is None:
+            return referral_id
+    return f"REF-{today}-{secrets.token_hex(4).upper()}"
+
+
+def _referral_form_data() -> dict:
+    return {
+        "referrer_name": request.form.get("referrer_name", "").strip(),
+        "referrer_phone": request.form.get("referrer_phone", "").strip(),
+        "referrer_email": request.form.get("referrer_email", "").strip(),
+        "family_name": request.form.get("family_name", "").strip(),
+        "contact_name": request.form.get("contact_name", "").strip(),
+        "contact_phone": request.form.get("contact_phone", "").strip(),
+        "contact_email": request.form.get("contact_email", "").strip(),
+        "address": request.form.get("address", "").strip(),
+        "postcode": request.form.get("postcode", "").strip(),
+        "household_size": request.form.get("household_size", "1").strip(),
+        "preferred_contact": request.form.get("preferred_contact", "phone").strip(),
+        "dietary_needs": request.form.get("dietary_needs", "").strip(),
+        "reason": request.form.get("reason", "").strip(),
+        "consent": request.form.get("consent") == "on",
+    }
+
+
+def _validate_referral_form(form: dict) -> list[str]:
+    errors = []
+    required_fields = {
+        "referrer_name": "Your name is required.",
+        "referrer_phone": "Your phone number is required.",
+        "family_name": "Family name is required.",
+        "contact_phone": "A contact phone number for the family is required.",
+        "address": "Delivery address is required.",
+    }
+    for field, message in required_fields.items():
+        if not form[field]:
+            errors.append(message)
+
+    try:
+        household_size = int(form["household_size"])
+    except ValueError:
+        household_size = 0
+    if household_size < 1:
+        errors.append("Household size must be at least 1.")
+
+    if form["preferred_contact"] not in {"phone", "email", "whatsapp"}:
+        errors.append("Preferred contact method is invalid.")
+
+    if not form["consent"]:
+        errors.append("Consent is required before submitting a referral.")
+
+    return errors
+
+
+def _decorate_referral(referral: dict) -> dict:
+    status = referral.get("status", "new")
+    referral["status_label"] = REFERRAL_STATUS_LABELS.get(status, status.title())
+    referral["badge_class"] = REFERRAL_STATUS_BADGES.get(status, "badge-blue")
+    return referral
 
 
 # -------------------------------------------------------------------------
@@ -39,6 +126,7 @@ def _init_db():
 def index():
     db = get_db()
     summary = db.get_delivery_summary()
+    referral_summary = db.get_referral_summary()
     incidents = db.get_all_incidents()
     drivers = db.get_all_drivers()
     open_incidents = [i for i in incidents if not i["resolved"]]
@@ -54,6 +142,7 @@ def index():
     return render_template(
         "index.html",
         summary=summary,
+        referral_summary=referral_summary,
         drivers=drivers,
         active_today=active_today,
         open_incidents=open_incidents,
@@ -211,6 +300,100 @@ def deliveries_list():
         drivers=drivers,
         status_filter=status_filter,
         driver_filter=driver_filter,
+    )
+
+
+# -------------------------------------------------------------------------
+# Referrals
+# -------------------------------------------------------------------------
+
+@app.route("/refer", methods=["GET", "POST"])
+def referral_public():
+    if request.method == "POST":
+        form = _referral_form_data()
+        errors = _validate_referral_form(form)
+        if errors:
+            return render_template("refer.html", form=form, errors=errors)
+
+        db = get_db()
+        referral = db.add_referral(
+            referral_id=_new_referral_id(db),
+            referrer_name=form["referrer_name"],
+            referrer_phone=form["referrer_phone"],
+            referrer_email=form["referrer_email"],
+            family_name=form["family_name"],
+            contact_name=form["contact_name"],
+            contact_phone=form["contact_phone"],
+            contact_email=form["contact_email"],
+            address=form["address"],
+            postcode=form["postcode"],
+            household_size=int(form["household_size"]),
+            preferred_contact=form["preferred_contact"],
+            dietary_needs=form["dietary_needs"],
+            reason=form["reason"],
+            consent=form["consent"],
+            created_at=_now(),
+        )
+        return render_template("referral_success.html", referral=referral)
+
+    return render_template("refer.html", form={}, errors=[])
+
+
+@app.route("/referrals")
+def referrals_list():
+    db = get_db()
+    status_filter = request.args.get("status", "").strip()
+    query = request.args.get("q", "").strip().lower()
+    referrals = [_decorate_referral(r) for r in db.get_all_referrals()]
+
+    if status_filter:
+        referrals = [r for r in referrals if r.get("status") == status_filter]
+    if query:
+        referrals = [
+            r for r in referrals
+            if query in " ".join([
+                r.get("id", ""),
+                r.get("family_name", ""),
+                r.get("contact_name", ""),
+                r.get("contact_phone", ""),
+                r.get("postcode", ""),
+            ]).lower()
+        ]
+
+    return render_template(
+        "referrals.html",
+        referrals=referrals,
+        statuses=REFERRAL_STATUSES,
+        status_filter=status_filter,
+        query=query,
+        summary=db.get_referral_summary(),
+    )
+
+
+@app.route("/referrals/<referral_id>", methods=["GET", "POST"])
+def referral_detail(referral_id):
+    db = get_db()
+    referral = db.get_referral(referral_id)
+    if referral is None:
+        flash(f"Referral '{referral_id}' not found.", "error")
+        return redirect(url_for("referrals_list"))
+
+    if request.method == "POST":
+        status = request.form.get("status", "new").strip()
+        notes = request.form.get("notes", "").strip()
+        valid_statuses = {value for value, _label in REFERRAL_STATUSES}
+        if status not in valid_statuses:
+            flash("Referral status is invalid.", "error")
+            return redirect(url_for("referral_detail", referral_id=referral_id))
+
+        db.update_referral_status(referral_id, status, notes, _now())
+        flash(f"Referral {referral_id} updated.", "success")
+        return redirect(url_for("referral_detail", referral_id=referral_id))
+
+    return render_template(
+        "referral_detail.html",
+        referral=_decorate_referral(referral),
+        statuses=REFERRAL_STATUSES,
     )
 
 

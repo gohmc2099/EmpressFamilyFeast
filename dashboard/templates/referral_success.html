@@ -1,0 +1,20 @@
+{% extends "public_base.html" %}
+{% block title %}Referral Received{% endblock %}
+
+{% block content %}
+<section class="public-hero success-panel">
+    <p class="eyebrow">Referral received</p>
+    <h2>Thank you for referring {{ referral.family_name }}</h2>
+    <p>
+        The Empress Family Feast team will review this referral and follow up
+        with the family using the contact details provided.
+    </p>
+    <div class="referral-code">
+        <span>Reference number</span>
+        <strong>{{ referral.id }}</strong>
+    </div>
+    <div class="public-actions">
+        <a href="{{ url_for('referral_public') }}" class="btn btn-primary">Submit another referral</a>
+    </div>
+</section>
+{% endblock %}

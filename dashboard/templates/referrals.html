@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Referrals{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Referrals</h2>
+    <p>Review family referrals and move each family through the support pipeline</p>
+</div>
+
+<div class="cards">
+    <div class="card">
+        <div class="card-label">Total Referrals</div>
+        <div class="card-value blue">{{ summary.total }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">New</div>
+        <div class="card-value yellow">{{ summary.new }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Scheduled</div>
+        <div class="card-value blue">{{ summary.scheduled }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Enrolled</div>
+        <div class="card-value green">{{ summary.enrolled }}</div>
+    </div>
+</div>
+
+<div class="table-header standalone-header">
+    <h3>Referral intake</h3>
+    <a href="{{ url_for('referral_public') }}" class="btn btn-primary">Open Public Form</a>
+</div>
+
+<div class="filters">
+    <form method="GET" class="filters-form">
+        <select name="status" onchange="this.form.submit()">
+            <option value="">All Statuses</option>
+            {% for value, label in statuses %}
+            <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <input type="search" name="q" value="{{ query }}" placeholder="Search by family, phone, postcode...">
+        <button type="submit" class="btn btn-sm">Search</button>
+        {% if status_filter or query %}
+        <a href="{{ url_for('referrals_list') }}" class="btn btn-sm">Clear Filters</a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="table-wrap">
+    <div class="table-header">
+        <h3>{{ referrals|length }} Referrals</h3>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Reference</th>
+                <th>Family</th>
+                <th>Contact</th>
+                <th>Household</th>
+                <th>Postcode</th>
+                <th>Status</th>
+                <th>Submitted</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for referral in referrals %}
+            <tr>
+                <td><strong>{{ referral.id }}</strong></td>
+                <td>
+                    {{ referral.family_name }}
+                    {% if referral.contact_name %}
+                    <br><small style="color: var(--text-muted);">{{ referral.contact_name }}</small>
+                    {% endif %}
+                </td>
+                <td>
+                    {{ referral.contact_phone }}
+                    {% if referral.preferred_contact %}
+                    <br><small style="color: var(--text-muted);">{{ referral.preferred_contact|title }}</small>
+                    {% endif %}
+                </td>
+                <td>{{ referral.household_size }}</td>
+                <td>{{ referral.postcode or '—' }}</td>
+                <td><span class="badge {{ referral.badge_class }}">{{ referral.status_label }}</span></td>
+                <td>{{ referral.created_at }}</td>
+                <td><a href="{{ url_for('referral_detail', referral_id=referral.id) }}" class="btn btn-sm">Review</a></td>
+            </tr>
+            {% endfor %}
+            {% if not referrals %}
+            <tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">No referrals found.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
