@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Referrers{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-end;">
+    <div>
+        <h2>Referrers</h2>
+        <p>Customers who can refer friends. Each one has a unique code and shareable link.</p>
+    </div>
+    <a href="{{ url_for('referrals.referrer_add') }}" class="btn btn-primary">+ Add Referrer</a>
+</div>
+
+<div class="table-wrap">
+    <div class="table-header">
+        <h3>{{ referrers|length }} referrer{{ 's' if referrers|length != 1 else '' }}</h3>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Code</th>
+                <th>Contact</th>
+                <th>Referrals</th>
+                <th>Converted</th>
+                <th>Credit</th>
+                <th>Joined</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in referrers %}
+            <tr>
+                <td><strong>{{ r.name }}</strong></td>
+                <td><code class="ref-code">{{ r.code }}</code></td>
+                <td>
+                    {% if r.email %}<div>{{ r.email }}</div>{% endif %}
+                    {% if r.phone %}<div style="color: var(--text-muted); font-size: 12px;">{{ r.phone }}</div>{% endif %}
+                </td>
+                <td>{{ r.referral_count }}</td>
+                <td>{{ r.converted_count }}</td>
+                <td>{{ currency_symbol }}{{ '%.2f'|format(r.credit_balance|float) }}</td>
+                <td style="color: var(--text-muted); font-size: 12px;">{{ r.joined_at }}</td>
+                <td>
+                    <a href="{{ url_for('referrals.referrer_detail', code=r.code) }}" class="btn btn-sm">View</a>
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not referrers %}
+            <tr><td colspan="8" style="color: var(--text-muted); text-align: center; padding: 24px;">No referrers yet. <a href="{{ url_for('referrals.referrer_add') }}">Add the first one</a>.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

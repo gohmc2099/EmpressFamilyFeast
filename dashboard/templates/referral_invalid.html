@@ -1,0 +1,16 @@
+{% extends "public_base.html" %}
+{% block title %}Invite not found — Empress Family Feast{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>Hmm, that link looks expired</h1>
+    <p class="hero-lead">
+        We couldn't find the referral code <code class="ref-code">{{ code }}</code>.
+        It may have been mistyped, or the referrer may have left.
+    </p>
+    <p class="hero-lead">
+        If a friend sent you here, ask them to re-share their invite link.
+        Otherwise, you can always reach Empress Family Feast directly.
+    </p>
+</div>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "public_base.html" %}
+{% block title %}Thanks {{ referral.referee_name }}! — Empress Family Feast{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <div class="hero-eyebrow">You're on the list</div>
+    <h1>Thanks, {{ referral.referee_name }}!</h1>
+    <p class="hero-lead">
+        We've saved your {{ currency_symbol }}{{ '%.2f'|format(referee_reward) }}
+        first-order discount. Someone from the Empress kitchen will reach out soon
+        with the menu and how to place your first order.
+    </p>
+    <div class="reward-pill">
+        {{ currency_symbol }}{{ '%.2f'|format(referee_reward) }} off — locked in
+    </div>
+</div>
+
+<div class="signup-card" style="text-align: center;">
+    <h2>Want to share the love?</h2>
+    <p class="signup-sub">When your first order is delivered, {{ referrer.name }} will earn {{ currency_symbol }}{{ '%.2f'|format(referrer_reward) }} credit too. Pay it forward — refer a friend yourself once you're a customer.</p>
+</div>
+{% endblock %}

@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Referrals{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Referrals</h2>
+    <p>Every signup that came from a referral link.</p>
+</div>
+
+<div class="cards">
+    <div class="card">
+        <div class="card-label">Total</div>
+        <div class="card-value blue">{{ summary.total }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Signed Up</div>
+        <div class="card-value yellow">{{ summary.signed_up }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Converted</div>
+        <div class="card-value green">{{ summary.converted }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Outstanding Credit</div>
+        <div class="card-value">{{ currency_symbol }}{{ '%.2f'|format(summary.outstanding_credit) }}</div>
+    </div>
+</div>
+
+<div class="filters">
+    <form method="GET" style="display: flex; gap: 12px;">
+        <select name="status" onchange="this.form.submit()">
+            <option value="">All statuses</option>
+            <option value="signed_up" {% if status_filter == 'signed_up' %}selected{% endif %}>Signed Up</option>
+            <option value="converted" {% if status_filter == 'converted' %}selected{% endif %}>Converted</option>
+            <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+            <option value="expired" {% if status_filter == 'expired' %}selected{% endif %}>Expired</option>
+        </select>
+        {% if status_filter %}
+        <a href="{{ url_for('referrals.referrals_list') }}" class="btn btn-sm">Clear</a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="table-wrap">
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Referrer</th>
+                <th>Friend</th>
+                <th>Contact</th>
+                <th>Status</th>
+                <th>Reward</th>
+                <th>Created</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in referrals %}
+            <tr>
+                <td>#{{ r.id }}</td>
+                <td><a href="{{ url_for('referrals.referrer_detail', code=r.referrer_code) }}"><code class="ref-code">{{ r.referrer_code }}</code></a></td>
+                <td>
+                    <strong>{{ r.referee_name }}</strong>
+                    {% if r.referee_message %}<div style="color: var(--text-muted); font-size: 12px;">"{{ r.referee_message }}"</div>{% endif %}
+                </td>
+                <td>
+                    {% if r.referee_email %}<div>{{ r.referee_email }}</div>{% endif %}
+                    {% if r.referee_phone %}<div style="color: var(--text-muted); font-size: 12px;">{{ r.referee_phone }}</div>{% endif %}
+                </td>
+                <td>
+                    {% if r.status == 'converted' %}<span class="badge badge-green">Converted</span>
+                    {% elif r.status == 'signed_up' %}<span class="badge badge-yellow">Signed Up</span>
+                    {% elif r.status == 'pending' %}<span class="badge badge-blue">Pending</span>
+                    {% else %}<span class="badge badge-red">{{ r.status }}</span>{% endif %}
+                </td>
+                <td>{{ currency_symbol }}{{ '%.2f'|format(r.referrer_reward|float) }}</td>
+                <td style="color: var(--text-muted); font-size: 12px;">{{ r.created_at }}</td>
+                <td>
+                    <div style="display: flex; gap: 4px;">
+                        {% if r.status != 'converted' %}
+                        <form method="POST" action="{{ url_for('referrals.referral_mark', referral_id=r.id, status='converted') }}" style="display: inline;">
+                            <button type="submit" class="btn btn-sm btn-primary">Convert</button>
+                        </form>
+                        {% endif %}
+                        {% if r.status not in ('expired',) %}
+                        <form method="POST" action="{{ url_for('referrals.referral_mark', referral_id=r.id, status='expired') }}" style="display: inline;">
+                            <button type="submit" class="btn btn-sm">Expire</button>
+                        </form>
+                        {% endif %}
+                        <form method="POST" action="{{ url_for('referrals.referral_delete', referral_id=r.id) }}" onsubmit="return confirm('Delete this referral?');" style="display: inline;">
+                            <button type="submit" class="btn btn-sm btn-danger">×</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not referrals %}
+            <tr><td colspan="8" style="color: var(--text-muted); text-align: center; padding: 24px;">No referrals yet.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

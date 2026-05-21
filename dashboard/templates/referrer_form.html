@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ action }} Referrer{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>{{ action }} Referrer</h2>
+    <p>{% if referrer %}Editing {{ referrer.code }}{% else %}New customer who can refer friends{% endif %}</p>
+</div>
+
+<form method="POST" class="form-card">
+    <div class="form-group">
+        <label>Name *</label>
+        <input type="text" name="name" required value="{{ referrer.name if referrer else '' }}">
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label>Email</label>
+            <input type="email" name="email" value="{{ referrer.email if referrer else '' }}">
+        </div>
+        <div class="form-group">
+            <label>Phone</label>
+            <input type="text" name="phone" value="{{ referrer.phone if referrer else '' }}">
+        </div>
+    </div>
+
+    {% if not referrer %}
+    <div class="form-group">
+        <label>Referral code</label>
+        <input type="text" name="code" value="{{ suggested_code }}" pattern="[A-Z0-9]{4,16}" title="4–16 uppercase letters and digits">
+        <small style="color: var(--text-muted); font-size: 12px;">Leave the suggested code or pick something memorable (e.g. JANE2026). Uppercase letters and digits only.</small>
+    </div>
+    {% endif %}
+
+    <div class="form-group">
+        <label>Notes</label>
+        <textarea name="notes" rows="3">{{ referrer.notes if referrer else '' }}</textarea>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">{{ action }} Referrer</button>
+        <a href="{{ url_for('referrals.referrers_list') }}" class="btn">Cancel</a>
+    </div>
+</form>
+{% endblock %}

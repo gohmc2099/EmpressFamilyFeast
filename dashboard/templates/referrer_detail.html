@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}{{ referrer.name }} — Referrer{% endblock %}
+
+{% block content %}
+<div class="page-header" style="display: flex; justify-content: space-between; align-items: flex-end;">
+    <div>
+        <h2>{{ referrer.name }}</h2>
+        <p>Referrer · code <code class="ref-code">{{ referrer.code }}</code> · joined {{ referrer.joined_at }}</p>
+    </div>
+    <div style="display: flex; gap: 8px;">
+        <a href="{{ url_for('referrals.referrer_edit', code=referrer.code) }}" class="btn">Edit</a>
+        <form method="POST" action="{{ url_for('referrals.referrer_delete', code=referrer.code) }}" onsubmit="return confirm('Delete this referrer and all their referrals?');" style="display: inline;">
+            <button type="submit" class="btn btn-danger">Delete</button>
+        </form>
+    </div>
+</div>
+
+<div class="cards">
+    <div class="card">
+        <div class="card-label">Referrals</div>
+        <div class="card-value blue">{{ referrals|length }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Converted</div>
+        <div class="card-value green">{{ referrals|selectattr('status', 'equalto', 'converted')|list|length }}</div>
+    </div>
+    <div class="card">
+        <div class="card-label">Credit Earned</div>
+        <div class="card-value">{{ currency_symbol }}{{ '%.2f'|format(referrer.credit_balance|float) }}</div>
+    </div>
+</div>
+
+<div class="share-card">
+    <div class="share-card-label">Shareable link</div>
+    <div class="share-row">
+        <input type="text" readonly value="{{ share_url }}" id="share-url" class="share-url-input">
+        <button type="button" class="btn btn-primary" onclick="copyShare()">Copy</button>
+        <a href="{{ share_url }}" target="_blank" class="btn">Open</a>
+    </div>
+    <p style="color: var(--text-muted); font-size: 12px; margin-top: 8px;">
+        Share this link with friends. When they sign up and place their first order,
+        {{ referrer.name }} earns {{ currency_symbol }}{{ '%.2f'|format(referrer_reward) }}
+        and the friend gets {{ currency_symbol }}{{ '%.2f'|format(referee_reward) }} off.
+    </p>
+</div>
+
+<div class="table-wrap">
+    <div class="table-header">
+        <h3>Referrals from {{ referrer.name }}</h3>
+        {% if referrer.credit_balance|float > 0 %}
+        <form method="POST" action="{{ url_for('referrals.referrer_payout', code=referrer.code) }}" onsubmit="return confirm('Mark {{ currency_symbol }}{{ '%.2f'|format(referrer.credit_balance|float) }} as paid out and reset balance?');" style="display: inline;">
+            <button type="submit" class="btn">Mark credit as paid out</button>
+        </form>
+        {% endif %}
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Friend</th>
+                <th>Contact</th>
+                <th>Status</th>
+                <th>Reward</th>
+                <th>Signed Up</th>
+                <th>Converted</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in referrals %}
+            <tr>
+                <td>#{{ r.id }}</td>
+                <td><strong>{{ r.referee_name }}</strong>
+                    {% if r.referee_message %}<div style="color: var(--text-muted); font-size: 12px;">"{{ r.referee_message }}"</div>{% endif %}
+                </td>
+                <td>
+                    {% if r.referee_email %}<div>{{ r.referee_email }}</div>{% endif %}
+                    {% if r.referee_phone %}<div style="color: var(--text-muted); font-size: 12px;">{{ r.referee_phone }}</div>{% endif %}
+                </td>
+                <td>
+                    {% if r.status == 'converted' %}<span class="badge badge-green">Converted</span>
+                    {% elif r.status == 'signed_up' %}<span class="badge badge-yellow">Signed Up</span>
+                    {% elif r.status == 'pending' %}<span class="badge badge-blue">Pending</span>
+                    {% else %}<span class="badge badge-red">{{ r.status }}</span>{% endif %}
+                </td>
+                <td>{{ currency_symbol }}{{ '%.2f'|format(r.referrer_reward|float) }}</td>
+                <td style="color: var(--text-muted); font-size: 12px;">{{ r.signed_up_at or '—' }}</td>
+                <td style="color: var(--text-muted); font-size: 12px;">{{ r.converted_at or '—' }}</td>
+                <td>
+                    {% if r.status != 'converted' %}
+                    <form method="POST" action="{{ url_for('referrals.referral_mark', referral_id=r.id, status='converted') }}" style="display: inline;">
+                        <button type="submit" class="btn btn-sm btn-primary">Mark converted</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not referrals %}
+            <tr><td colspan="8" style="color: var(--text-muted); text-align: center; padding: 24px;">No referrals yet. Share the link above to get started.</td></tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function copyShare() {
+    const input = document.getElementById('share-url');
+    input.select();
+    input.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(input.value).then(() => {
+        const btn = event.target;
+        const original = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = original; }, 1500);
+    });
+}
+</script>
+{% endblock %}

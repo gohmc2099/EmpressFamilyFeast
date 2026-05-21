@@ -1,0 +1,56 @@
+{% extends "public_base.html" %}
+{% block title %}{{ referrer.name }} invited you — Empress Family Feast{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <div class="hero-eyebrow">A gift from {{ referrer.name }}</div>
+    <h1>Welcome to Empress<br><span class="hero-accent">Family Feast</span></h1>
+    <p class="hero-lead">
+        {{ referrer.name }} thinks you'd love our home-cooked family-style meals,
+        delivered to your door.
+    </p>
+    <div class="reward-pill">
+        Get <strong>{{ currency_symbol }}{{ '%.2f'|format(referee_reward) }} off</strong> your first order
+    </div>
+</div>
+
+<div class="signup-card">
+    <h2>Claim your discount</h2>
+    <p class="signup-sub">Drop your details below — we'll be in touch with how to place your first order.</p>
+
+    <form method="POST" action="{{ url_for('referrals.public_landing', code=referrer.code) }}">
+        <div class="form-group">
+            <label>Your name *</label>
+            <input type="text" name="name" required placeholder="e.g. Aisha Bello">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" placeholder="you@example.com">
+            </div>
+            <div class="form-group">
+                <label>Phone</label>
+                <input type="text" name="phone" placeholder="07700 ...">
+            </div>
+        </div>
+        <p style="color: var(--text-muted); font-size: 12px; margin-top: -8px; margin-bottom: 16px;">
+            We need either an email or phone number so we can reach you.
+        </p>
+        <div class="form-group">
+            <label>Anything you'd like {{ referrer.name }} to know? <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+            <textarea name="message" rows="2" placeholder="Thanks for the invite!"></textarea>
+        </div>
+        <input type="hidden" name="code" value="{{ referrer.code }}">
+        <button type="submit" class="btn btn-primary btn-large">Claim my {{ currency_symbol }}{{ '%.2f'|format(referee_reward) }} discount</button>
+    </form>
+</div>
+
+<div class="how-it-works">
+    <h3>How it works</h3>
+    <ol>
+        <li>Tell us a bit about yourself.</li>
+        <li>We'll get in touch with our menu and how to place your first order.</li>
+        <li>Get <strong>{{ currency_symbol }}{{ '%.2f'|format(referee_reward) }} off</strong> your first feast — and {{ referrer.name }} earns {{ currency_symbol }}{{ '%.2f'|format(referrer_reward) }} credit on theirs.</li>
+    </ol>
+</div>
+{% endblock %}
